@@ -1,6 +1,6 @@
-// Package silence has functions to suppress repeated function calls
+// Package suppress has functions to suppress repeated function calls
 // into one aggregated function call.
-package silence
+package suppress
 
 import (
 	"fmt"
@@ -12,21 +12,21 @@ import (
 
 // hide the variable and the struct because they gon' find you
 // also because it's meant to be a singleton
-var _silencer *silencer
+var _suppressor *suppressor
 
-type silencerState struct {
+type suppressorState struct {
 	next     time.Time
 	count    int
 	lastFunc func(int, string)
 }
 
-type silencer struct {
+type suppressor struct {
 	sync.Mutex
-	states map[string]*silencerState
+	states map[string]*suppressorState
 }
 
 func init() {
-	_silencer = &silencer{states: make(map[string]*silencerState)}
+	_suppressor = &suppressor{states: make(map[string]*suppressorState)}
 }
 
 // For aggregates repeated calls to itself and calls f once every duration
@@ -47,10 +47,10 @@ func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) 
 	key := fmt.Sprintf("%d%s", pc, id)
 	tag := fmt.Sprintf("%s:%d %s", file, line, id)
 
-	_silencer.Lock()
-	state, exists := _silencer.states[key]
+	_suppressor.Lock()
+	state, exists := _suppressor.states[key]
 	if !exists {
-		state = new(silencerState)
+		state = new(suppressorState)
 	}
 
 	state.count++
@@ -67,22 +67,22 @@ func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) 
 			// this is the first time we've suppressed, so schedule the next
 			// firing. subsequent passes will only increment the counter.
 			go func() {
-				_silencer.Lock()
+				_suppressor.Lock()
 				wait := state.next.Sub(time.Now())
-				_silencer.Unlock()
+				_suppressor.Unlock()
 
 				time.Sleep(wait)
 
-				_silencer.Lock()
+				_suppressor.Lock()
 				state.lastFunc(state.count, tag)
 				state.next = time.Now().Add(duration)
 				state.count = 0
-				_silencer.states[key] = state
-				_silencer.Unlock()
+				_suppressor.states[key] = state
+				_suppressor.Unlock()
 			}()
 		}
 	} // else state.count > 1 and a flush has already been scheduled
 
-	_silencer.states[key] = state
-	_silencer.Unlock()
+	_suppressor.states[key] = state
+	_suppressor.Unlock()
 }

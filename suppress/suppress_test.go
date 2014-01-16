@@ -1,7 +1,7 @@
-package silence_test
+package suppress_test
 
 import (
-	"github.com/fastly/go-utils/silence"
+	"github.com/fastly/go-utils/suppress"
 	"runtime"
 	"testing"
 	"time"
@@ -29,14 +29,14 @@ func TestSilencer5(t *testing.T) {
 }
 */
 
-func test(t *testing.T, tags []string, invocations int, testTime time.Duration, silenceTime time.Duration, expectedPerInvocation int) {
+func test(t *testing.T, tags []string, invocations int, testTime time.Duration, suppressTime time.Duration, expectedPerInvocation int) {
 	var attempts, firings, errors int
 	lasts := make(map[string]time.Time)
 
 	f := func(count int, id string) {
 		last := lasts[id]
 		now := time.Now()
-		if last.IsZero() || now.Sub(last) >= silenceTime {
+		if last.IsZero() || now.Sub(last) >= suppressTime {
 			firings++
 		} else {
 			t.Logf("Error %q at %v; delta=%v attempts=%d last=%v count=%d",
@@ -58,20 +58,20 @@ func test(t *testing.T, tags []string, invocations int, testTime time.Duration, 
 		tag := tags[attempts%len(tags)]
 		// use separate calls so program counter is different for each
 		if invocations > 0 {
-			silence.For(silenceTime, tag, f)
+			suppress.For(suppressTime, tag, f)
 		}
 		if invocations > 1 {
-			silence.For(silenceTime, tag, f)
+			suppress.For(suppressTime, tag, f)
 		}
 		if invocations > 2 {
-			silence.For(silenceTime, tag, f)
+			suppress.For(suppressTime, tag, f)
 		}
 		runtime.Gosched() // yield to other goroutines
 	}
 
 	// wait for flusher goroutines to finish
 	finished := time.Now()
-	time.Sleep(2 * silenceTime)
+	time.Sleep(2 * suppressTime)
 	finishedAndWaited := time.Now()
 
 	elapsed := finished.Sub(start)
@@ -83,7 +83,7 @@ func test(t *testing.T, tags []string, invocations int, testTime time.Duration, 
 		t.Errorf("Expected %d firings, got %d", expected, firings)
 	}
 	if errors > 0 {
-		t.Errorf("Silencer failed to silence %d times", errors)
+		t.Errorf("Silencer failed to suppress %d times", errors)
 	}
 }
 
@@ -94,12 +94,12 @@ func TestSilencerStalled(t *testing.T) {
 	}
 	events := make([]Event, 0)
 
-	// fire 5 events in rapid succession, all within the silence window. the
+	// fire 5 events in rapid succession, all within the suppress window. the
 	// first call should happen immediately but the next four should be
-	// coalesced at the end of the silence period.
+	// coalesced at the end of the suppress period.
 	start := time.Now()
 	for i := 0; i < 5; i++ {
-		silence.For(100*time.Millisecond, "anon", func(n int, tag string) {
+		suppress.For(100*time.Millisecond, "anon", func(n int, tag string) {
 			events = append(events, Event{time.Now(), n})
 			t.Logf("%v", tag)
 		})

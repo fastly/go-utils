@@ -30,7 +30,7 @@ func init() {
 }
 
 // For aggregates repeated calls to itself and calls f once every duration
-// with the number of aggregated calls and the tag collated with the calling
+// with the number of aggregated calls and the tag coalesced with the calling
 // file and line number
 func For(duration time.Duration, id string, f func(int, string)) {
 	// WrapFor is depth 1,
@@ -38,7 +38,7 @@ func For(duration time.Duration, id string, f func(int, string)) {
 }
 
 // WrapFor is the same as For, except the depth of the call stack can be
-// chosen for what ID to tag and collate. runtime.Caller will have depth 0, and the
+// chosen for what ID to tag and coalesce. runtime.Caller will have depth 0, and the
 // call to this function will have depth 1, so any additional layers before calling
 // this function should have depth >= 1.
 func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) {

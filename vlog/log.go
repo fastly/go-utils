@@ -1,5 +1,5 @@
 // Package vlog contains functions for optionally printing if a verbose flag
-// is set and for collating multiple duplicate print calls.
+// is set and for coalescing multiple duplicate print calls.
 package vlog
 
 import (
@@ -14,7 +14,7 @@ var Verbose bool
 var suppressDur time.Duration
 
 // SetSuppressDuration sets the time for repeated log calls to be
-// suppressed and collated.
+// suppressed and coalesced.
 func SetSuppressDuration(duration time.Duration) {
 	suppressDur = duration
 }
@@ -26,7 +26,7 @@ func VLogf(format string, v ...interface{}) {
 	}
 }
 
-// LogfQuiet collates multiple calls from the same location into one log.Printf
+// LogfQuiet coalesces multiple calls from the same location into one log.Printf
 // call at the end of the suppress duration. If called multiple times, the output
 // will be prepended with "[#x] ", where # is the number of duplicate suppressed calls.
 func LogfQuiet(id, format string, v ...interface{}) {

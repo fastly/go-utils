@@ -58,13 +58,13 @@ func test(t *testing.T, tags []string, invocations int, testTime time.Duration, 
 		tag := tags[attempts%len(tags)]
 		// use separate calls so program counter is different for each
 		if invocations > 0 {
-			SilenceFor(silenceTime, tag, f)
+			silence.For(silenceTime, tag, f)
 		}
 		if invocations > 1 {
-			SilenceFor(silenceTime, tag, f)
+			silence.For(silenceTime, tag, f)
 		}
 		if invocations > 2 {
-			SilenceFor(silenceTime, tag, f)
+			silence.For(silenceTime, tag, f)
 		}
 		runtime.Gosched() // yield to other goroutines
 	}
@@ -99,7 +99,7 @@ func TestSilencerStalled(t *testing.T) {
 	// coalesced at the end of the silence period.
 	start := time.Now()
 	for i := 0; i < 5; i++ {
-		SilenceFor(100*time.Millisecond, "anon", func(n int, tag string) {
+		silence.For(100*time.Millisecond, "anon", func(n int, tag string) {
 			events = append(events, Event{time.Now(), n})
 			t.Logf("%v", tag)
 		})

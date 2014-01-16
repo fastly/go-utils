@@ -51,6 +51,7 @@ func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) 
 	state, exists := _suppressor.states[key]
 	if !exists {
 		state = new(suppressorState)
+		_suppressor.states[key] = state
 	}
 
 	state.count++
@@ -77,12 +78,10 @@ func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) 
 				state.lastFunc(state.count, tag)
 				state.next = time.Now().Add(duration)
 				state.count = 0
-				_suppressor.states[key] = state
 				_suppressor.Unlock()
 			}()
 		}
 	} // else state.count > 1 and a flush has already been scheduled
 
-	_suppressor.states[key] = state
 	_suppressor.Unlock()
 }

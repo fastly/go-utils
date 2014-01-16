@@ -1,3 +1,7 @@
+// Package ganglia has convenience functions for using ganglia.
+//
+// This package uses the vlog utility package for logging various messages
+// if the vlog.Verbose boolean is set to true.
 package ganglia
 
 import (
@@ -80,12 +84,14 @@ func Gmetric() *Reporter {
 	return globalReporter.Reporter
 }
 
-// Configure sets group name of a reporter and the verbose logging flag.
-// It returns the reporter itself.
-func (r *Reporter) Configure(groupName string, verbose bool) *Reporter {
-	vlog.Verbose = verbose
-	r.groupName = groupName
-	return r
+// Configure sets group name and prefix of a reporter and returns the reporter.
+func (gr *Reporter) Configure(groupName, prefix string) *Reporter {
+	if gr == nil {
+		return nil
+	}
+	gr.prefix = prefix
+	gr.groupName = groupName
+	return gr
 }
 
 // Convenience wrapper for Gmetric().AddCallback():
@@ -150,14 +156,11 @@ func NewGmetric() (*gmetric.Gmetric, error) {
 // servers are initialized from the hosts gmond.conf. Calling Stop on the
 // Reporter will cease its operation.
 func NewGangliaReporter(interval time.Duration) *Reporter {
-	return NewGangliaReporterWithOptions(interval, "", false)
+	return NewGangliaReporterWithOptions(interval, "")
 }
 
-// NewGangliaReporterWithOptions is NewGangliaReporter with the groupName
-// and verbose parameters explicit.
-func NewGangliaReporterWithOptions(interval time.Duration, groupName string, verbose bool) *Reporter {
-	// set before the call to NewGmetric so VLogf in NewGmetric works properly
-	vlog.Verbose = verbose
+// NewGangliaReporterWithOptions is NewGangliaReporter with the groupName.
+func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Reporter {
 	gm, err := NewGmetric()
 	if err != nil {
 		vlog.VLogfQuiet("ganglia", "Couldn't start Ganglia reporter: %s", err)
@@ -267,13 +270,6 @@ func (gr *Reporter) AddCallback(callback ReporterCallback) {
 		return
 	}
 	gr.callbacks = append(gr.callbacks, callback)
-}
-
-func (gr *Reporter) SetPrefix(prefix string) {
-	if gr == nil {
-		return
-	}
-	gr.prefix = prefix
 }
 
 func (g *Reporter) Stop() {

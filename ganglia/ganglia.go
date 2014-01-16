@@ -80,6 +80,14 @@ func Gmetric() *Reporter {
 	return globalReporter.Reporter
 }
 
+// Configure sets group name of a reporter and the verbose logging flag.
+// It returns the reporter itself.
+func (r *Reporter) Configure(groupName string, verbose bool) *Reporter {
+	vlog.Verbose = verbose
+	r.groupName = groupName
+	return r
+}
+
 // Convenience wrapper for Gmetric().AddCallback():
 //
 //   AddGmetrics(func(gmetric MetricSender) {

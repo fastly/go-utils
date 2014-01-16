@@ -33,8 +33,6 @@ const (
 var (
 	GmondConfig string
 	Interval    time.Duration
-	// set using Configure(), which should be called before any other functions
-	groupName string
 
 	gmondChannelRe  = regexp.MustCompile("udp_send_channel\\s*{([^}]+)}")
 	gmondHostPortRe = regexp.MustCompile("(host|port)\\s*=\\s*(\\S+)")
@@ -59,14 +57,7 @@ type Reporter struct {
 	prefix    string
 	callbacks []ReporterCallback
 	previous  map[string]gmetricSample
-}
-
-// Configure sets the group name that will be used in ganglia calls and whether to
-// turn on more verbose logging. The verbose flag is used for the vlog package, so
-// setting it here will override previous options.
-func Configure(GroupName string, Verbose bool) {
-	groupName = GroupName
-	vlog.Verbose = Verbose
+	groupName string
 }
 
 // MetricSender takes the following parameters:
@@ -146,12 +137,19 @@ func NewGmetric() (*gmetric.Gmetric, error) {
 	return &gm, nil
 }
 
-// NewGangliaReporter return a Reporter object which calls callback every
+// NewGangliaReporter returns a Reporter object which calls callback every
 // interval with the given group name. callback is passed a Gmetric whose
 // servers are initialized from the hosts gmond.conf. Calling Stop on the
 // Reporter will cease its operation.
 func NewGangliaReporter(interval time.Duration) *Reporter {
+	return NewGangliaReporterWithOptions(interval, "", false)
+}
+
+// NewGangliaReporterWithOptions is NewGangliaReporter with the groupName
+// and verbose parameters explicit.
+func NewGangliaReporterWithOptions(interval time.Duration, groupName string, verbose bool) *Reporter {
 	// set before the call to NewGmetric so VLogf in NewGmetric works properly
+	vlog.Verbose = verbose
 	gm, err := NewGmetric()
 	if err != nil {
 		vlog.VLogfQuiet("ganglia", "Couldn't start Ganglia reporter: %s", err)
@@ -160,7 +158,7 @@ func NewGangliaReporter(interval time.Duration) *Reporter {
 		return nil
 	}
 	stopper := stopper.NewChanStopper()
-	gr := &Reporter{stopper, "", make([]ReporterCallback, 0), make(map[string]gmetricSample)}
+	gr := &Reporter{stopper, "", make([]ReporterCallback, 0), make(map[string]gmetricSample), groupName}
 	go func() {
 		defer stopper.Done()
 		for {

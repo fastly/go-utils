@@ -7,7 +7,7 @@ import (
 )
 
 var debug bool
-var m *sync.Mutex = new(sync.Mutex)
+var m sync.Mutex
 
 // On returns whether debugging is on or off.
 func On() bool {

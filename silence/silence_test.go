@@ -1,6 +1,7 @@
-package util
+package silence_test
 
 import (
+	"github.com/fastly/go-utils/silence"
 	"runtime"
 	"testing"
 	"time"

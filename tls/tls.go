@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"vlog"
+
+	. "github.com/fastly/go-utils/process"
+	. "github.com/fastly/go-utils/vlog"
 )
 
 var (

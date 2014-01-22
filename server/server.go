@@ -1,4 +1,4 @@
-package util
+package server
 
 import (
 	"net"
@@ -17,6 +17,13 @@ import (
    Additionally, the Shutdown() client method is defer-friendly shorthand for
    calling RequestShutdown then WaitForFinish.
 */
+
+var Ping Signal
+
+type (
+	Signal     struct{}
+	SignalChan chan Signal
+)
 
 type Server struct {
 	Listeners map[string]net.Listener

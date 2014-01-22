@@ -33,11 +33,11 @@ func TestTLSProxyToSyslogd(t *testing.T) {
 
 // reject connections from unknown certs
 func TestTLSUnknownToProxy(t *testing.T) {
-	check(t, "test-unknown-client", "test-proxy-server", ttls.Insecure)
+	check(t, "test-unknown-client", "test-proxy-server", false)
 }
 
 func TestTLSProxyToUnknown(t *testing.T) {
-	check(t, "test-proxy-client", "test-unknown-server", ttls.Insecure)
+	check(t, "test-proxy-client", "test-unknown-server", false)
 }
 
 func check(t *testing.T, clientName, serverName string, shouldPass bool) {

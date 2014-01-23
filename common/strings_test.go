@@ -26,6 +26,28 @@ func TestEmbeddedLines(t *testing.T) {
 	}
 }
 
+func TestStrings(t *testing.T) {
+	tests := []struct {
+		Input  []string
+		Expect []common.StringPop
+	}{
+		{[]string{}, []common.StringPop{}},
+		{[]string{"one", "two", "two", "three", "three", "three"},
+			[]common.StringPop{
+				{"one", 1},
+				{"two", 2},
+				{"three", 3},
+			}},
+	}
+
+	for _, test := range tests {
+		got := common.Strings(test.Input)
+		if !reflect.DeepEqual(test.Expect, got) {
+			t.Errorf("return slice != expect, return: %v, expect: %v", got, test.Expect)
+		}
+	}
+}
+
 func BenchmarkEmbeddedLines(b *testing.B) {
 	b.StopTimer()
 	bytes, err := ioutil.ReadFile("commonlines_test_file.txt")

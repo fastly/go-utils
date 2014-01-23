@@ -5,6 +5,19 @@ import (
 	"strings"
 )
 
+// StringPop is a struct containing a string and it's
+// corresponding count (population).
+type StringPop struct {
+	String string
+	Count  int
+}
+
+type StringPops []StringPop
+
+func (l StringPops) Len() int           { return len(l) }
+func (l StringPops) Less(i, j int) bool { return l[i].Count < l[j].Count }
+func (l StringPops) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+
 // EmbeddedLines returns a sorted slice of lines that
 // are common in every input string when the string is split
 // by \n. That is, the input string has embedded newlines.
@@ -13,7 +26,7 @@ func EmbeddedLines(inputs []string) []string {
 	for _, input := range inputs {
 		split := strings.Split(input, "\n")
 		for _, line := range split {
-			commonalities[line] = commonalities[line] + 1
+			commonalities[line] += 1
 		}
 	}
 
@@ -35,4 +48,22 @@ func EmbeddedLines(inputs []string) []string {
 	sort.Strings(commonLines)
 
 	return commonLines
+}
+
+// Strings returns an ordered slice of StringPop with
+// each StringPop containing a line and the corresponding
+// amount of times it it occurs in the input slice.
+func Strings(input []string) []StringPop {
+	commonalities := make(map[string]int)
+	for _, line := range input {
+		commonalities[line] += 1
+	}
+
+	lineCounts := []StringPop{}
+	for line, count := range commonalities {
+		lineCounts = append(lineCounts, StringPop{line, count})
+	}
+
+	sort.Sort(StringPops(lineCounts))
+	return lineCounts
 }

@@ -50,7 +50,7 @@ func EmbeddedLines(inputs []string) []string {
 	return commonLines
 }
 
-// Strings returns an ordered slice of StringPop with
+// Strings returns an descending order slice of StringPop with
 // each StringPop containing a line and the corresponding
 // amount of times it it occurs in the input slice.
 func Strings(input []string) []StringPop {
@@ -64,6 +64,6 @@ func Strings(input []string) []StringPop {
 		lineCounts = append(lineCounts, StringPop{line, count})
 	}
 
-	sort.Sort(StringPops(lineCounts))
+	sort.Sort(sort.Reverse(StringPops(lineCounts)))
 	return lineCounts
 }

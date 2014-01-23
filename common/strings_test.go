@@ -34,9 +34,9 @@ func TestStrings(t *testing.T) {
 		{[]string{}, []common.StringPop{}},
 		{[]string{"one", "two", "two", "three", "three", "three"},
 			[]common.StringPop{
-				{"one", 1},
-				{"two", 2},
 				{"three", 3},
+				{"two", 2},
+				{"one", 1},
 			}},
 	}
 

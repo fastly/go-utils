@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// EscapedLines returns a sorted slice of lines that
+// EmbeddedLines returns a sorted slice of lines that
 // are common in every input string when the string is split
 // by \n. That is, the input string has embedded newlines.
-func EscapedLines(inputs []string) []string {
+func EmbeddedLines(inputs []string) []string {
 	commonalities := make(map[string]int)
 	for _, input := range inputs {
 		split := strings.Split(input, "\n")

@@ -1,14 +1,27 @@
-package tls
+package tls_test
 
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/fastly/go-utils/server"
+	ttls "github.com/fastly/go-utils/tls"
 	"io"
 	"io/ioutil"
+	"log"
 	"strings"
 	"testing"
 	"time"
 )
+
+func NewMockServer() *server.Server {
+	addr := ":0" // let kernel assign an unused port
+	s, err := server.NewSingleServer(&addr)
+	if err != nil {
+		log.Panic(err)
+		return nil
+	}
+	return s
+}
 
 func TestTLSCacheToProxy(t *testing.T) {
 	check(t, "test-cache-client", "test-proxy-server", true)
@@ -20,20 +33,20 @@ func TestTLSProxyToSyslogd(t *testing.T) {
 
 // reject connections from unknown certs
 func TestTLSUnknownToProxy(t *testing.T) {
-	check(t, "test-unknown-client", "test-proxy-server", Insecure)
+	check(t, "test-unknown-client", "test-proxy-server", ttls.Insecure)
 }
 
 func TestTLSProxyToUnknown(t *testing.T) {
-	check(t, "test-proxy-client", "test-unknown-server", Insecure)
+	check(t, "test-proxy-client", "test-unknown-server", ttls.Insecure)
 }
 
 func check(t *testing.T, clientName, serverName string, shouldPass bool) {
-	clientConfig, err := ConfigureClient(clientName, "test-anon-ca")
+	clientConfig, err := ttls.ConfigureClient(clientName, "test-tls-ca")
 	if err != nil {
 		t.Errorf("Bad client key '%s': %s", clientName, err)
 		return
 	}
-	serverConfig, err := ConfigureServer(serverName, "test-anon-ca")
+	serverConfig, err := ttls.ConfigureServer(serverName, "test-tls-ca")
 	if err != nil {
 		t.Errorf("Bad server key '%s': %s", serverName, err)
 		return
@@ -51,7 +64,7 @@ func check(t *testing.T, clientName, serverName string, shouldPass bool) {
 		conn, err := listener.Accept()
 		if err == nil {
 			defer conn.Close()
-			ResetIdleTimeout(conn, 1.0*time.Second)
+			conn.SetDeadline(time.Now().Add(time.Second))
 			data, err := ioutil.ReadAll(conn)
 			if err == nil && string(data) != testData {
 				err = fmt.Errorf("Server read incorrect data; got '%s', expected '%s'", string(data), testData)
@@ -83,7 +96,7 @@ func check(t *testing.T, clientName, serverName string, shouldPass bool) {
 	} else if err != nil {
 		return
 	} // else err == nil && shouldPass
-	ResetIdleTimeout(conn, 1.0*time.Second)
+	conn.SetDeadline(time.Now().Add(time.Second))
 
 	n, err := io.WriteString(conn, testData)
 	if err == nil && n < len(testData) {

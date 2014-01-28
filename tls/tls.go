@@ -3,44 +3,45 @@ package tls
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	. "github.com/fastly/go-utils/process"
-	. "github.com/fastly/go-utils/vlog"
+	"github.com/fastly/go-utils/executable"
+	"github.com/fastly/go-utils/vlog"
 )
 
 var (
-	CertPath string
-	Insecure bool
+	_certPath string
+	_insecure bool
 )
 
-func init() {
-	flag.StringVar(&CertPath, "tls-certs", "", "path containing anons's TLS certs and keys. If empty, $BIN/../certs and $PWD/../../../../certs are searched")
-	flag.BoolVar(&Insecure, "tls-insecure", false, "ignore TLS cert verification errors")
+// Init sets the CertPath to search for TLS certs and keys. If CertPath is empty, $BIN/../certs
+// and $PWD/../../../../certs are searched. Insecure is a flag to ignore cert verification errors.
+func Init(certPath string, insecure bool) {
+	_certPath = certPath
+	_insecure = insecure
 }
 
 var packagedCertDir string
 
-// locate the path of the packaged PEM store which is the directory named
-// "certs". functions that take a (name string) parameter look for files named
-// ${name}-key.pem and/or ${name}-cert.pem in this directory.
+// LocatePackagedPEMDir locates the path of the packaged PEM store which is the
+// directory named "certs". functions that take a (name string) parameter look
+// for files named ${name}-key.pem and/or ${name}-cert.pem in this directory.
 func LocatePackagedPEMDir() (dir string, err error) {
 	if packagedCertDir != "" {
 		dir = packagedCertDir
 		return
-	} else if CertPath != "" {
-		packagedCertDir = CertPath
+	} else if _certPath != "" {
+		packagedCertDir = _certPath
 		dir = packagedCertDir
 		return
 	}
 
 	var binDir string
-	binDir, err = ExecutableDir()
+	binDir, err = executable.Dir()
 	if err != nil {
 		return
 	}
@@ -48,8 +49,8 @@ func LocatePackagedPEMDir() (dir string, err error) {
 	cwd, _ := os.Getwd()
 
 	searchList := []string{
-		binDir + "../certs",           // git and deb: certs is one up from bin
-		cwd + "/../../../../../certs", // tests: certs is 4 up from _test files
+		binDir + "../certs", // git and deb: certs is one up from bin
+		cwd + "/testcerts",  // tests: certs is 4 up from _test files
 	}
 	for _, l := range searchList {
 		d := filepath.Clean(l)
@@ -64,7 +65,7 @@ func LocatePackagedPEMDir() (dir string, err error) {
 	return
 }
 
-// load a single PEM file (with -cert or -key suffix) from the package store
+// LocatePackagedPEMFile loads a single PEM file (with -cert or -key suffix) from the package store
 func LocatePackagedPEMFile(name string) (file string, err error) {
 	if strings.IndexRune(name, '/') < 0 {
 		var dir string
@@ -86,7 +87,9 @@ func LocatePackagedPEMFile(name string) (file string, err error) {
 	return
 }
 
-// load a cert/key pair from the package store
+// LoadPackagedKeypair loads a cert/key pair from the package store
+// It looks for the ${name}-[cert,key].pem files from either the PEM dir
+// if just a filename is given or from the fullpath if a path is given.
 func LoadPackagedKeypair(name string) (cert tls.Certificate, certFile, keyFile string, err error) {
 	certFile, err = LocatePackagedPEMFile(name + "-cert")
 	if err != nil {
@@ -100,9 +103,12 @@ func LoadPackagedKeypair(name string) (cert tls.Certificate, certFile, keyFile s
 	return
 }
 
+// GenerateConfig returns a *tls.Config for either a client if true or server if client
+// is false, the given key pair ${name}-[cert,key].pem files and accepting the caCertNames
+// if given.
 func GenerateConfig(client bool, keyPairName string, caCertNames []string) (config *tls.Config, err error) {
 	config = &tls.Config{
-		InsecureSkipVerify: Insecure,
+		InsecureSkipVerify: _insecure,
 	}
 
 	label := "server"
@@ -118,7 +124,7 @@ func GenerateConfig(client bool, keyPairName string, caCertNames []string) (conf
 			return
 		}
 
-		VLogf("Loaded packaged %s keypair from %s and %s", label, cFile, kFile)
+		vlog.VLogf("Loaded packaged %s keypair from %s and %s", label, cFile, kFile)
 		config.Certificates = []tls.Certificate{keyPair}
 	}
 
@@ -128,7 +134,7 @@ func GenerateConfig(client bool, keyPairName string, caCertNames []string) (conf
 			config.RootCAs = caPool
 		} else {
 			config.ClientCAs = caPool
-			if Insecure {
+			if _insecure {
 				config.ClientAuth = tls.RequestClientCert
 			} else {
 				config.ClientAuth = tls.RequireAndVerifyClientCert
@@ -149,7 +155,7 @@ func GenerateConfig(client bool, keyPairName string, caCertNames []string) (conf
 				return nil, fmt.Errorf("Can't read cert from %s: %s", file, err)
 			}
 
-			VLogf("Allowing %s CA cert from %s", label, file)
+			vlog.VLogf("Allowing %s CA cert from %s", label, file)
 			if ok := caPool.AppendCertsFromPEM(b); !ok {
 				return nil, fmt.Errorf("No cert could be found in %s", file)
 			}
@@ -158,7 +164,7 @@ func GenerateConfig(client bool, keyPairName string, caCertNames []string) (conf
 	return
 }
 
-// returns a TLS server configuration that presents serverKeyPairName to
+// ConfigureServer returns a TLS server configuration that presents serverKeyPairName to
 // clients. if clientCertNames is non-empty the server will request a client
 // certificate and require that it be provided and signed by one of the named
 // certs.
@@ -166,9 +172,9 @@ func ConfigureServer(serverKeyPairName string, clientCertNames ...string) (confi
 	return GenerateConfig(false, serverKeyPairName, clientCertNames)
 }
 
-// returns a TLS client configuration that presents clientKeyPair to the remote
-// server. if serverCertNames is non-empty, server certificates must be signed
-// by one of the named certs; otherwise the default system CA list will be
+// ConfigureClient returns a TLS client configuration that presents clientKeyPair
+// to the remote server. if serverCertNames is non-empty, server certificates must
+// be signed by one of the named certs; otherwise the default system CA list will be
 // used.
 func ConfigureClient(clientKeyPairName string, serverCertNames ...string) (config *tls.Config, err error) {
 	return GenerateConfig(true, clientKeyPairName, serverCertNames)

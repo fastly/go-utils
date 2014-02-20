@@ -234,7 +234,7 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 							gmetric.SLOPE_BOTH,
 							uint32(interval.Seconds()), // tmax is the expected reporting interval
 							0, // dmax is the time to keep values in tsdb; 0 means forever
-							groupName,
+							gr.groupName,
 							gmetric.PACKET_BOTH, conns,
 						)
 						if debug.On() {

@@ -241,12 +241,12 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 							if rate {
 								log.Printf("gmetric: name=%q, rate=%q, value=%q, type=%d, units=%q, slope=%d, tmax=%d, dmax=%v, group=%q, packet=%d",
 									gr.prefix+name, v, value, metricType, units, gmetric.SLOPE_BOTH,
-									uint32(interval.Seconds()), 0, groupName, gmetric.PACKET_BOTH,
+									uint32(interval.Seconds()), 0, gr.groupName, gmetric.PACKET_BOTH,
 								)
 							} else {
 								log.Printf("gmetric: name=%q, value=%q, type=%d, units=%q, slope=%d, tmax=%d, dmax=%v, group=%q, packet=%d",
 									gr.prefix+name, v, metricType, units, gmetric.SLOPE_BOTH,
-									uint32(interval.Seconds()), 0, groupName, gmetric.PACKET_BOTH,
+									uint32(interval.Seconds()), 0, gr.groupName, gmetric.PACKET_BOTH,
 								)
 							}
 						}

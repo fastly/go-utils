@@ -24,6 +24,6 @@ func Path() (string, error) {
 	return C.GoStringN(&buf[0], C.int(buflen)), nil
 }
 
-func FindProcess(binary string) (*os.Process, int, error) {
-	return nil, 0, errors.New("FindProcess unimplemented on Darwin")
+func FindDuplicateProcess(binary string) (*os.Process, int, error) {
+	return nil, 0, errors.New("FindDuplicateProcess unimplemented on Darwin")
 }

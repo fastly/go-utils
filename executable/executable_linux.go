@@ -14,9 +14,9 @@ func Path() (string, error) {
 	return os.Readlink("/proc/self/exe")
 }
 
-// FindProcess returns the running process and it's PID given by the string path
-// or an error.
-func FindProcess(binary string) (*os.Process, int, error) {
+// FindDuplicateProcess looks for any other processes with the same
+// binary name as passed in and returns the first one found.
+func FindDuplicateProcess(binary string) (*os.Process, int, error) {
 	infos, err := ioutil.ReadDir("/proc/")
 	if err != nil {
 		return nil, 0, fmt.Errorf("Couldn't read /proc: %s", err)

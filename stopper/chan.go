@@ -23,7 +23,7 @@ func (s *ChanStopper) Stop() {
 	}
 	s.Lock()
 	defer s.Unlock()
-	s.Chan <- struct{}{}
+	close(s.Chan)
 }
 
 func (s *ChanStopper) OnDone(f func()) {

@@ -17,7 +17,7 @@ func NowRunning() bool {
 		log.Fatalf("Couldn't find own process: %s", err)
 		return false
 	}
-	proc, _, err := FindProcess(binary)
+	proc, _, err := FindDuplicateProcess(binary)
 	if err != nil {
 		vlog.VLogf("Couldn't look for running processes: %s", err)
 		return false

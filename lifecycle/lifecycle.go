@@ -37,6 +37,7 @@ func New(singleProcess bool) *Lifecycle {
 	// make sigint trigger a clean shutdown
 	signal.Notify(l.interrupt, os.Interrupt)
 	signal.Notify(l.interrupt, syscall.SIGTERM)
+	signal.Notify(l.interrupt, syscall.SIGHUP)
 
 	if singleProcess && executable.NowRunning() {
 		vlog.VLogf("Waiting for existing %s processes to exit...", os.Args[0])

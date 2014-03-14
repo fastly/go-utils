@@ -3,8 +3,10 @@ package tls
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +16,10 @@ import (
 )
 
 var (
-	_certPath string
+	_certPath,
+	_adminuser,
+	_adminpass,
+	_authrealm string
 	_insecure bool
 )
 
@@ -178,4 +183,83 @@ func ConfigureServer(serverKeyPairName string, clientCertNames ...string) (confi
 // used.
 func ConfigureClient(clientKeyPairName string, serverCertNames ...string) (config *tls.Config, err error) {
 	return GenerateConfig(true, clientKeyPairName, serverCertNames)
+}
+
+// SetWrapCreds stores the adminuser, adminpass, and authrealm. These parameters
+// will be used as the credentials and realm in calls to WrapHandleForAuth
+// and WrapHandlerFuncForAuth.
+func SetWrapCreds(adminuser, adminpass, authrealm string) {
+	_adminuser = adminuser
+	_adminpass = adminpass
+	_authrealm = authrealm
+}
+
+// WrapHandlerForAuth calls WrapHandlerForAuthCreds with the currently stored
+// adminuser, adminpass, and authrealm. SetWrapCreds should be called before this function
+// or else the HAndler will not be wrapped with basic authentication.
+func WrapHandlerForAuth(h http.Handler) http.Handler {
+	return WrapHandlerForAuthCreds(h, _adminuser, _adminpass, _authrealm)
+}
+
+// WrapHandlerFuncForAuth calls WrapHandlerFuncForAuthCreds with the currently stored
+// adminuser, adminpass, and authrealm. SetWrapCreds should be called before this function
+// or else the HandlerFunc will not be wrapped with basic authentication.
+func WrapHandlerFuncForAuth(h http.HandlerFunc) http.HandlerFunc {
+	return WrapHandlerFuncForAuthCreds(h, _adminuser, _adminpass, _authrealm)
+}
+
+// WrapHandlerForAuthCreds returns the Handler wrapped with basic authentication
+// requiring credentials adminuser and adminpass. The authrealm will be used
+// for the WWW-Authenticate header's basic realm.
+func WrapHandlerForAuthCreds(h http.Handler, adminuser, adminpass, authrealm string) http.Handler {
+	if adminuser == "" && adminpass == "" {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isAuthenticated(r, adminuser, adminpass) {
+			h.ServeHTTP(w, r)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="`+authrealm+`"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Unauthorized\n"))
+		}
+	})
+}
+
+// WrapHandlerFuncForAuth returns the HandlerFunc wrapped with basic authentication
+// requiring credentials adminuser and adminpass. The authrealm will be used
+// for the WWW-Authenticate header's basic realm.
+func WrapHandlerFuncForAuthCreds(h http.HandlerFunc, adminuser, adminpass, authrealm string) http.HandlerFunc {
+	if adminuser == "" && adminpass == "" {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isAuthenticated(r, adminuser, adminpass) {
+			h(w, r)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="`+authrealm+`"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Unauthorized\n"))
+		}
+	})
+}
+
+func isAuthenticated(r *http.Request, adminuser, adminpass string) bool {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		return false
+	}
+	pieces := strings.Split(auth, " ")
+	if len(pieces) != 2 || pieces[0] != "Basic" {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(pieces[1])
+	if err != nil {
+		return false
+	}
+	userpass := strings.Split(string(decoded), ":")
+	if len(userpass) != 2 || userpass[0] != adminuser || userpass[1] != adminpass {
+		return false
+	}
+	return true
 }

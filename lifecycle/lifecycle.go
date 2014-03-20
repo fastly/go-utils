@@ -113,12 +113,15 @@ func InstallStackTracer() stopper.Stopper {
 	return stopper
 }
 
-// GetStackTrace returns a string of the runtime.Stack
+// GetStackTrace returns a string containing the unabbreviated value of
+// runtime.Stack(all). Be aware that this function may stop the world multiple
+// times in order to obtain the full trace.
 func GetStackTrace(all bool) string {
-	buf := make([]byte, 64<<20)
-	n := runtime.Stack(buf, all)
-	if n < len(buf) {
-		buf = buf[:n]
+	b := make([]byte, 1<<10)
+	for {
+		if n := runtime.Stack(b, all); n < len(b) {
+			return string(b[:n])
+		}
+		b = make([]byte, len(b)*2)
 	}
-	return string(buf)
 }

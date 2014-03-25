@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ const traceSignal = syscall.SIGUSR1
 
 // A Lifecycle manages some boilerplate for running daemons.
 type Lifecycle struct {
+	m           sync.Mutex
 	interrupt   chan os.Signal
 	fatalQuit   chan struct{}
 	killFuncs   []func()
@@ -34,7 +36,6 @@ func New(singleProcess bool) *Lifecycle {
 	l := Lifecycle{
 		interrupt:   make(chan os.Signal, 1),
 		fatalQuit:   make(chan struct{}, 1),
-		killFuncs:   make([]func(), 0),
 		uninstaller: InstallStackTracer(),
 	}
 
@@ -66,9 +67,6 @@ func New(singleProcess bool) *Lifecycle {
 // on program shutdown.
 func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	vlog.VLogf("%s started", os.Args[0])
-	if finalizer == nil {
-		finalizer = func() {}
-	}
 	select {
 	case sig := <-l.interrupt:
 		vlog.VLogf("Caught signal %q, shutting down", sig)
@@ -84,7 +82,9 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 		for i := len(l.killFuncs) - 1; i >= 0; i-- {
 			l.killFuncs[i]()
 		}
-		finalizer()
+		if finalizer != nil {
+			finalizer()
+		}
 		close(shutdown)
 	}()
 	var t <-chan time.Time
@@ -110,6 +110,8 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 // is being killed ad the same time AddKillFunc is called, the
 // passed function will not be called.
 func (l *Lifecycle) AddKillFunc(f func()) {
+	l.m.Lock()
+	defer l.m.Unlock()
 	l.killFuncs = append(l.killFuncs, f)
 }
 

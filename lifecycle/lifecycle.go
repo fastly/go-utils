@@ -65,6 +65,10 @@ func New(singleProcess bool) *Lifecycle {
 //
 // RunWhenKilled should only be called once with a master function to run
 // on program shutdown.
+//
+// RunWhenKilled runs the finalizer before any deferred AddKillFunc functions.
+// This is so that the finalizer can begin the shutdown process that any
+// other AddKillFunc functions can rely on.
 func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	vlog.VLogf("%s started", os.Args[0])
 	select {
@@ -79,11 +83,11 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	// wait for either confirmation that we finished or another interrupt
 	shutdown := make(chan struct{}, 1)
 	go func() {
-		for i := len(l.killFuncs) - 1; i >= 0; i-- {
-			l.killFuncs[i]()
-		}
 		if finalizer != nil {
 			finalizer()
+		}
+		for i := len(l.killFuncs) - 1; i >= 0; i-- {
+			l.killFuncs[i]()
 		}
 		close(shutdown)
 	}()

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,7 +18,10 @@ const traceSignal = syscall.SIGUSR1
 
 // A Lifecycle manages some boilerplate for running daemons.
 type Lifecycle struct {
+	m           sync.Mutex
 	interrupt   chan os.Signal
+	fatalQuit   chan struct{}
+	killFuncs   []func()
 	uninstaller stopper.Stopper
 }
 
@@ -31,6 +35,7 @@ type Lifecycle struct {
 func New(singleProcess bool) *Lifecycle {
 	l := Lifecycle{
 		interrupt:   make(chan os.Signal, 1),
+		fatalQuit:   make(chan struct{}, 1),
 		uninstaller: InstallStackTracer(),
 	}
 
@@ -62,15 +67,24 @@ func New(singleProcess bool) *Lifecycle {
 // on program shutdown.
 func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	vlog.VLogf("%s started", os.Args[0])
-	sig := <-l.interrupt
-	vlog.VLogf("Caught signal %q, shutting down", sig)
+	select {
+	case sig := <-l.interrupt:
+		vlog.VLogf("Caught signal %q, shutting down", sig)
+	case <-l.fatalQuit:
+		vlog.VLogf("Caught fatal quit, shutting down")
+	}
 
 	defer l.uninstaller.Stop()
 
 	// wait for either confirmation that we finished or another interrupt
 	shutdown := make(chan struct{}, 1)
 	go func() {
-		finalizer()
+		for i := len(l.killFuncs) - 1; i >= 0; i-- {
+			l.killFuncs[i]()
+		}
+		if finalizer != nil {
+			finalizer()
+		}
 		close(shutdown)
 	}()
 	var t <-chan time.Time
@@ -88,6 +102,22 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 		vlog.VLogf("Second interrupt, exiting")
 		os.Exit(1)
 	}
+}
+
+// AddKillFunc will add f to the list of functions to be ran
+// when the lifecycle is killed. Functions passed to AddKillFunc
+// are ran in reverse order, much like defer. If the lifecycle
+// is being killed ad the same time AddKillFunc is called, the
+// passed function will not be called.
+func (l *Lifecycle) AddKillFunc(f func()) {
+	l.m.Lock()
+	defer l.m.Unlock()
+	l.killFuncs = append(l.killFuncs, f)
+}
+
+// FatalQuit will kill the lifecycle to continue into the RunWhenKilled function.
+func (l *Lifecycle) FatalQuit() {
+	l.fatalQuit <- struct{}{}
 }
 
 // for debugging, show goroutine trace on receipt of USR1. uninstall by calling

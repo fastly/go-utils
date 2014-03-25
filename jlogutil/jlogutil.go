@@ -45,6 +45,18 @@ func NewReader(path, subscriber string) (*JReader, error) {
 	return jreader, nil
 }
 
+func (j *JReader) Reopen() error {
+	err := j.Close()
+	if err != nil {
+		return errors.New("unable to close, err: %v", err)
+	}
+
+	err = j.Open(j.subscriber)
+	if err != nil {
+		return errors.New("unable to open, err: %v", err)
+	}
+}
+
 // Removes the JReader's specific reader and closes the jlog.
 func (j *JReader) Close() {
 	j.RemoveSubscriber(j.subscriber)

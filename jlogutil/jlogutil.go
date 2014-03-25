@@ -12,9 +12,9 @@ type JReader struct {
 	subscriber string
 }
 
-// Reader opens the jlog at the given path, attaches the given subscriber
+// NewReader opens the jlog at the given path, attaches the given subscriber
 // for reading and returns the opened jlog.
-func Reader(path, subscriber string) (*JReader, error) {
+func NewReader(path, subscriber string) (*JReader, error) {
 	log, err := jlog.NewReader(path, nil)
 	if err != nil {
 		return nil, err

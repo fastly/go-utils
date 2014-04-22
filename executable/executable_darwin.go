@@ -27,3 +27,11 @@ func Path() (string, error) {
 func FindDuplicateProcess(binary string) (*os.Process, int, error) {
 	return nil, 0, errors.New("FindDuplicateProcess unimplemented on Darwin")
 }
+
+func BinaryDuplicateProcessIDs(binary string) (pids []int, err error) {
+	return nil, errors.New("DuplicateProcessIDs unimplemented on Darwin")
+}
+
+func DuplicateProcessIDs() (pids []int, err error) {
+	return BinaryDuplicateProcessIDs("")
+}

@@ -100,7 +100,7 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 		return nil, fmt.Errorf("Key file %q already exists", keyFile)
 	}
 	if _, err := os.Open(certFile); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("Cert file %q already exists", keyFile)
+		return nil, fmt.Errorf("Cert file %q already exists", certFile)
 	}
 
 	var extUsages []x509.ExtKeyUsage
@@ -165,7 +165,7 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 	// check that the cert verifies against its own CA
 	cert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
-		return nil, fmt.Errorf("Cert doesn't veryfiy against its CA: %s", err)
+		return nil, fmt.Errorf("Cert doesn't verify against its CA: %s", err)
 	}
 
 	roots := x509.NewCertPool()

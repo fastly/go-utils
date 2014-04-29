@@ -22,7 +22,6 @@ type Lifecycle struct {
 	interrupt   chan os.Signal
 	fatalQuit   chan struct{}
 	killFuncs   []func()
-	uninstaller stopper.Stopper
 }
 
 // New creates a new Lifecycle. This should be called after validating
@@ -36,7 +35,6 @@ func New(singleProcess bool) *Lifecycle {
 	l := Lifecycle{
 		interrupt:   make(chan os.Signal, 1),
 		fatalQuit:   make(chan struct{}, 1),
-		uninstaller: InstallStackTracer(),
 	}
 
 	// make sigint trigger a clean shutdown
@@ -77,8 +75,6 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	case <-l.fatalQuit:
 		vlog.VLogf("Caught fatal quit, shutting down")
 	}
-
-	defer l.uninstaller.Stop()
 
 	// wait for either confirmation that we finished or another interrupt
 	shutdown := make(chan struct{}, 1)

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Path returns the executable path of the running process.
@@ -49,7 +50,7 @@ func BinaryDuplicateProcessIDs(binary string) (pids []int, err error) {
 		if err != nil {
 			continue
 		}
-		if exe == binary {
+		if strings.HasPrefix(exe, binary) { // if the proc's binary was deleted, it'll have suffix " (deleted)"
 			pids = append(pids, pid)
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/fastly/go-utils/executable"
@@ -54,9 +55,27 @@ func LocatePackagedPEMDir() (dir string, err error) {
 	cwd, _ := os.Getwd()
 
 	searchList := []string{
-		binDir + "../certs", // git and deb: certs is one up from bin
+		binDir + "../certs", // deb: certs is one up from bin
 		cwd + "/testcerts",  // tests: certs is 4 up from _test files
 	}
+
+	// src-containing git checkout: $GOPATH/certs
+	if goPath := os.Getenv("GOPATH"); goPath != "" {
+		for _, gp := range filepath.SplitList(goPath) {
+			searchList = append(searchList, gp+"/certs")
+		}
+	}
+
+	// non-src git checkout: search for a certs/ starting deepest-first at
+	// $GOPATH/src/foo/bar/, where foo/bar is the package calling into this
+	// one. This works if foo/bar has subpackages which call this function,
+	// even indirectly by way of the other functions in this package.
+	if callerDir, ok := callerPkgDir(); ok {
+		if certsDir, ok := searchUpwards(callerDir, "certs"); ok {
+			searchList = append(searchList, certsDir)
+		}
+	}
+
 	for _, l := range searchList {
 		d := filepath.Clean(l)
 		var info os.FileInfo
@@ -68,6 +87,62 @@ func LocatePackagedPEMDir() (dir string, err error) {
 	}
 	err = fmt.Errorf("couldn't locate packaged PEMs in any of %v", searchList)
 	return
+}
+
+// callerPkgDir returns a pathname containing the build-time location of the
+// deepest calling function that is not within this package. If that cannot be
+// found, ok will be false and dir will be empty.
+func callerPkgDir() (dir string, ok bool) {
+	_, thisFile, _, cok := runtime.Caller(0) // /home/me/workspace/src/fastly/go-utils/tls/tls.go
+	if !cok {
+		return
+	}
+
+	thisDir := filepath.Dir(thisFile)                                 // /home/me/workspace/src/fastly/go-utils/tls
+	sep := fmt.Sprintf("%csrc%c", os.PathSeparator, os.PathSeparator) // /src/
+	p := strings.SplitN(thisDir, sep, 2)
+	if len(p) < 2 {
+		return
+	}
+	thisPkg := p[1] // fastly/go-utils/tls/
+
+	for i := 1; ; i++ {
+		if i > 10 {
+			// typical stack is tls.ConfigureServer -> tls.GenerateConfig ->
+			// tls.LoadPackagedKeypair -> tls.LocatePackagedPEMFile ->
+			// tls.LocatePackagedPEMDir -> tls.searchUpwards
+			panic("excessive recursion inside tls package")
+		}
+
+		_, file, _, cok := runtime.Caller(i) // /home/me/workspace/src/foo/bar/subpkg/thing.go
+		if !cok {
+			return
+		}
+
+		if !strings.Contains(file, thisPkg) {
+			return filepath.Dir(file), true // /home/me/workspace/src/foo/bar/subpkg
+		}
+	}
+}
+
+// searchUpwards finds the deepest directory that is `start` or one of its
+// parents which contains a directory named `dir`. The returned path is to the
+// search target, not its parent. If none could be found, ok will be false and
+// path will be empty.
+func searchUpwards(start, dir string) (path string, ok bool) {
+	cur := start
+	for {
+		test := filepath.Join(cur, dir)
+		fi, err := os.Stat(test)
+		if err == nil && fi != nil && fi.IsDir() {
+			return test, true
+		}
+		next := filepath.Dir(cur)
+		if next == cur {
+			return
+		}
+		cur = next
+	}
 }
 
 // LocatePackagedPEMFile loads a single PEM file (with -cert or -key suffix) from the package store

@@ -159,7 +159,7 @@ func testStrftimeAgainstPerl(t *testing.T, impl strftimeImpl, strict bool) {
 	stmts := make([]string, len(perlTests))
 
 	for n := int64(0); n < duration; n += stride {
-		when := refTime
+		when := refTime + n
 		var tm = time.Unix(when, 0).In(tz)
 		/*
 			if n%100 == 0 {
@@ -199,6 +199,10 @@ func testStrftimeAgainstPerl(t *testing.T, impl strftimeImpl, strict bool) {
 			} else {
 				t.Errorf("FAIL %d/%d: `%s` => got `%s`, perl produced `%s`", i, when, test.format, got, expected)
 			}
+		}
+
+		if testing.Short() {
+			break
 		}
 	}
 }

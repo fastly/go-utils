@@ -1,8 +1,9 @@
 package lifecycle
 
 import (
-	"os"
 	"testing"
+
+	"os"
 	"time"
 )
 

@@ -1,16 +1,18 @@
 package tls_test
 
 import (
+	"testing"
+
 	"crypto/tls"
 	"fmt"
-	"github.com/fastly/go-utils/server"
-	ttls "github.com/fastly/go-utils/tls"
 	"io"
 	"io/ioutil"
 	"log"
 	"strings"
-	"testing"
 	"time"
+
+	"github.com/fastly/go-utils/server"
+	ttls "github.com/fastly/go-utils/tls"
 )
 
 func NewMockServer() *server.Server {

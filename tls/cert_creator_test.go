@@ -1,6 +1,8 @@
 package tls_test
 
 import (
+	"testing"
+
 	gotls "crypto/tls"
 	"fmt"
 	"io"
@@ -8,7 +10,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/fastly/go-utils/tls"
@@ -256,8 +257,8 @@ func TestCertCreator(t *testing.T) {
 	// manually with a Go 1.2.1 patched to not send the list of CAs from the
 	// server and got:
 	/*
-		--- FAIL: TestCertCreator (0.20 seconds)
-	        cert_creator_test.go:224: foe->friend server: expected error "tls: client didn't provide a certificate" but got "tls: failed to verify client's certificate: x509: certificate signed by unknown authority"
+			--- FAIL: TestCertCreator (0.20 seconds)
+		        cert_creator_test.go:224: foe->friend server: expected error "tls: client didn't provide a certificate" but got "tls: failed to verify client's certificate: x509: certificate signed by unknown authority"
 	*/
 	check(foe, friend, "remote error: bad certificate", "tls: client didn't provide a certificate")
 	foe.clientConfig.InsecureSkipVerify = false

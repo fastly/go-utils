@@ -1,11 +1,13 @@
 package common_test
 
 import (
-	"github.com/fastly/go-utils/common"
+	"testing"
+
 	"io/ioutil"
 	"reflect"
 	"strings"
-	"testing"
+
+	"github.com/fastly/go-utils/common"
 )
 
 func TestEmbeddedLines(t *testing.T) {

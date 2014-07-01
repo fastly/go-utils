@@ -18,10 +18,10 @@ const traceSignal = syscall.SIGUSR1
 
 // A Lifecycle manages some boilerplate for running daemons.
 type Lifecycle struct {
-	m           sync.Mutex
-	interrupt   chan os.Signal
-	fatalQuit   chan struct{}
-	killFuncs   []func()
+	m         sync.Mutex
+	interrupt chan os.Signal
+	fatalQuit chan struct{}
+	killFuncs []func()
 }
 
 // New creates a new Lifecycle. This should be called after validating
@@ -33,8 +33,8 @@ type Lifecycle struct {
 // processes to exit before returning.
 func New(singleProcess bool) *Lifecycle {
 	l := Lifecycle{
-		interrupt:   make(chan os.Signal, 1),
-		fatalQuit:   make(chan struct{}, 1),
+		interrupt: make(chan os.Signal, 1),
+		fatalQuit: make(chan struct{}, 1),
 	}
 
 	// make sigint trigger a clean shutdown

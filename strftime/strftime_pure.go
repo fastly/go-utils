@@ -23,7 +23,7 @@ func StrftimePure(format string, t time.Time) string {
 			if i < len(format) {
 				switch format[i] {
 				default:
-					e = format[i-1:i+1]
+					e = format[i-1 : i+1]
 				case 'a':
 					// The abbreviated weekday name according to the current locale.
 					e = t.Format("Mon")
@@ -139,7 +139,7 @@ func StrftimePure(format string, t time.Time) string {
 					e = strconv.Itoa(day)
 				case 'U':
 					// The week number of the current year as a decimal number, range 00 to 53, starting with the first Sunday as the first day of week 01. See also %V and %W.
-					e = fmt.Sprintf("%02d", (t.YearDay() - int(t.Weekday()) + 7) / 7)
+					e = fmt.Sprintf("%02d", (t.YearDay()-int(t.Weekday())+7)/7)
 				case 'V':
 					// The ISO 8601 week number (see NOTES) of the current year as a decimal number, range 01 to 53, where week 1 is the first week that has at least 4 days in the new year. See also %U and %W. (SU)
 					_, week := t.ISOWeek()
@@ -149,7 +149,7 @@ func StrftimePure(format string, t time.Time) string {
 					e = strconv.Itoa(int(t.Weekday()))
 				case 'W':
 					// The week number of the current year as a decimal number, range 00 to 53, starting with the first Monday as the first day of week 01.
-					e = fmt.Sprintf("%02d", (t.YearDay() - (int(t.Weekday()) - 1 + 7) % 7 + 7) / 7)
+					e = fmt.Sprintf("%02d", (t.YearDay()-(int(t.Weekday())-1+7)%7+7)/7)
 				case 'x':
 					// The preferred date representation for the current locale without the time.
 					e = fmt.Sprintf("%02d/%02d/%02d", t.Month(), t.Day(), t.Year()%100)
@@ -183,7 +183,7 @@ func StrftimePure(format string, t time.Time) string {
 		} else {
 			nextPct := strings.Index(format[i:], "%")
 			if nextPct >= 0 {
-				e = format[i:i+nextPct]
+				e = format[i : i+nextPct]
 				i += len(e)
 			} else {
 				e = format[i:]

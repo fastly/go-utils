@@ -1,11 +1,12 @@
 package strftime_test
 
 import (
+	"testing"
+
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/fastly/go-utils/strftime"

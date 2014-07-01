@@ -1,9 +1,11 @@
 package executable_test
 
 import (
-	"github.com/fastly/go-utils/executable"
-	"strings"
 	"testing"
+
+	"strings"
+
+	"github.com/fastly/go-utils/executable"
 )
 
 // tests Path as well

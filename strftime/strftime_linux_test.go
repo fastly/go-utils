@@ -108,3 +108,9 @@ func testStrftimeAgainstPerl(t *testing.T, impl strftimeImpl, strict bool) {
 		}
 	}
 }
+
+func BenchmarkStrftime(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		strftime.Strftime(benchFmt, benchTime)
+	}
+}

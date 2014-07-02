@@ -1,11 +1,12 @@
 package vlog_test
 
 import (
+	"testing"
+
 	"bytes"
 	"log"
 	"os"
 	"regexp"
-	"testing"
 	"time"
 
 	"github.com/fastly/go-utils/vlog"

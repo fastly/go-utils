@@ -3,10 +3,11 @@
 package executable
 
 import (
-	"github.com/fastly/go-utils/vlog"
 	"log"
 	"path/filepath"
 	"syscall"
+
+	"github.com/fastly/go-utils/vlog"
 )
 
 // NowRunning returns true if there is a running process whose

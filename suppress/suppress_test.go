@@ -1,10 +1,12 @@
 package suppress_test
 
 import (
-	"github.com/fastly/go-utils/suppress"
-	"runtime"
 	"testing"
+
+	"runtime"
 	"time"
+
+	"github.com/fastly/go-utils/suppress"
 )
 
 /*

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -96,10 +97,7 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 	}
 
 	keyFile, certFile := name+"-key.pem", name+"-cert.pem"
-	if _, err := os.Open(keyFile); !os.IsNotExist(err) {
-		return nil, fmt.Errorf("Key file %q already exists", keyFile)
-	}
-	if _, err := os.Open(certFile); !os.IsNotExist(err) {
+	if _, err := os.Stat(certFile); !os.IsNotExist(err) {
 		return nil, fmt.Errorf("Cert file %q already exists", certFile)
 	}
 
@@ -148,26 +146,51 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 		}
 	}
 
-	if parent == nil {
-		privkey, err := rsa.GenerateKey(rand.Reader, cc.KeySize)
+	var privKey *rsa.PrivateKey
+	var reusedKey bool
+	if keyBytes, err := ioutil.ReadFile(keyFile); err == nil {
+		// reuse existing key
+		keyDERBlock, _ := pem.Decode(keyBytes)
+		if keyDERBlock == nil {
+			return nil, errors.New("failed to parse key PEM data")
+		}
+		if keyDERBlock.Type != "RSA PRIVATE KEY" {
+			return nil, fmt.Errorf("key is not a RSA PRIVATE KEY: %s", keyDERBlock.Type)
+		}
+		privKey, err = x509.ParsePKCS1PrivateKey(keyDERBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		reusedKey = true
+		vlog.VLogf("Reusing key %q\n", keyFile)
+	} else if os.IsNotExist(err) {
+		// generate a new key
+		privKey, err = rsa.GenerateKey(rand.Reader, cc.KeySize)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to generate private key: %s", err)
 		}
-		parent = &KeyPair{&template, privkey}
+	} else {
+		return nil, err
+	}
+
+	if parent == nil {
+		// CA signs itself
+		parent = &KeyPair{&template, privKey}
 	}
 
 	// sign the key
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, parent.Cert, &parent.PrivKey.PublicKey, parent.PrivKey)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, parent.Cert, &privKey.PublicKey, parent.PrivKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// check that the cert verifies against its own CA
+	// check that the cert can be parsed
 	cert, err := x509.ParseCertificate(derBytes)
 	if err != nil {
 		return nil, fmt.Errorf("Cert doesn't verify against its CA: %s", err)
 	}
 
+	// check that the cert verifies against its own CA
 	roots := x509.NewCertPool()
 	if purpose == CA {
 		roots.AddCert(cert)
@@ -180,13 +203,15 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 	}
 
 	// write key and cert to disk
-	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to open %q for writing: %s", keyFile, err)
+	if !reusedKey {
+		keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to open %q for writing: %s", keyFile, err)
+		}
+		pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privKey)})
+		keyOut.Close()
+		vlog.VLogf("Wrote key %q\n", keyFile)
 	}
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(parent.PrivKey)})
-	keyOut.Close()
-	vlog.VLogf("Wrote key %q\n", keyFile)
 
 	certOut, err := os.Create(certFile)
 	if err != nil {

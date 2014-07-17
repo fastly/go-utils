@@ -2,6 +2,7 @@ package instrumentation
 
 import (
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -44,4 +45,24 @@ func GetSystemStats() SystemStats {
 	stats.GCPauseSince = time.Now().Sub(time.Unix(0, int64(mem.LastGC))).Seconds()
 
 	return stats
+}
+
+func GetStackTraces() map[string][]string {
+	stack := make([]byte, 10240)
+	runtime.Stack(stack, true)
+
+	info := make(map[string][]string, 0)
+	goroutine := ""
+
+	for _, line := range strings.Split(string(stack), "\n") {
+		line = strings.TrimSpace(line)
+		line = strings.Trim(line, "\u0000")
+		if strings.HasPrefix(line, "goroutine ") {
+			goroutine = line
+		} else if line != "" {
+			info[goroutine] = append(info[goroutine], line)
+		}
+	}
+
+	return info
 }

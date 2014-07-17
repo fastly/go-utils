@@ -4,12 +4,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/fastly/go-utils/executable"
+	"github.com/fastly/go-utils/instrumentation"
 	"github.com/fastly/go-utils/stopper"
 	"github.com/fastly/go-utils/vlog"
 )
@@ -134,24 +134,11 @@ func InstallStackTracer() stopper.Stopper {
 		for {
 			select {
 			case <-signals:
-				log.Print(GetStackTrace(true))
+				log.Print(instrumentation.GetStackTrace(true))
 			case <-stopper.Chan:
 				return
 			}
 		}
 	}()
 	return stopper
-}
-
-// GetStackTrace returns a string containing the unabbreviated value of
-// runtime.Stack(all). Be aware that this function may stop the world multiple
-// times in order to obtain the full trace.
-func GetStackTrace(all bool) string {
-	b := make([]byte, 1<<10)
-	for {
-		if n := runtime.Stack(b, all); n < len(b) {
-			return string(b[:n])
-		}
-		b = make([]byte, len(b)*2)
-	}
 }

@@ -47,14 +47,28 @@ func GetSystemStats() SystemStats {
 	return stats
 }
 
+// GetStackTrace returns a string containing the unabbreviated value of
+// runtime.Stack(all). Be aware that this function may stop the world multiple
+// times in order to obtain the full trace.
+func GetStackTrace(all bool) string {
+	b := make([]byte, 1<<10)
+	for {
+		if n := runtime.Stack(b, all); n < len(b) {
+			return string(b[:n])
+		}
+		b = make([]byte, len(b)*2)
+	}
+}
+
+// Return a map of goroutines to string Slice of their
+// respective stack trace.
 func GetStackTraces() map[string][]string {
-	stack := make([]byte, 10240)
-	runtime.Stack(stack, true)
+	stack := GetStackTrace(true)
 
 	info := make(map[string][]string, 0)
 	goroutine := ""
 
-	for _, line := range strings.Split(string(stack), "\n") {
+	for _, line := range strings.Split(stack, "\n") {
 		line = strings.TrimSpace(line)
 		line = strings.Trim(line, "\u0000")
 		if strings.HasPrefix(line, "goroutine ") {

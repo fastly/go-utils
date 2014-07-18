@@ -8,15 +8,24 @@ import (
 )
 
 type SystemStats struct {
-	NumGoRoutines    int
-	UserTime         float64
-	SystemTime       float64
-	BytesAlloc       uint64
-	BytesFromSystem  uint64
-	GCPauseTimesNs   float64
-	GCPauseTimeMax   float64
+	// Number of goroutines currently running.
+	NumGoRoutines int
+	// Seconds in userland.
+	UserTime float64
+	// Seconds in system time.
+	SystemTime float64
+	// Number of bytes currently allocated.
+	BytesAlloc uint64
+	// Number of bytes obtained from system.
+	BytesFromSystem uint64
+	// How long the last GC pause time took in milliseconds.
+	GCPauseTimeLast float64
+	// Maximum recent GC pause time in milliseconds.
+	GCPauseTimeMax float64
+	// Total GC pause time in milliseconds.
 	GCPauseTimeTotal float64
-	GCPauseSince     float64
+	// Seconds since last GC pause.
+	GCPauseSince float64
 }
 
 func GetSystemStats() SystemStats {
@@ -60,8 +69,8 @@ func GetStackTrace(all bool) string {
 	}
 }
 
-// Return a map of goroutines to string Slice of their
-// respective stack trace.
+// GetStackTraces returns a map of goroutines to string
+// Slice of their respective stack trace.
 func GetStackTraces() map[string][]string {
 	stack := GetStackTrace(true)
 

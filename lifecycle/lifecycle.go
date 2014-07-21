@@ -142,3 +142,7 @@ func InstallStackTracer() stopper.Stopper {
 	}()
 	return stopper
 }
+
+func GetStackTrace(all bool) string {
+	return instrumentation.GetStackTrace(all)
+}

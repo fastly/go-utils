@@ -2,6 +2,8 @@ go-utils
 ========
 utils for go.
 
+[![Build Status](https://secure.travis-ci.org/fastly/go-utils.png)](http://travis-ci.org/fastly/go-utils)
+
 common
 ------
 An experimental package for functions detecting commonalities between inputs.
@@ -11,9 +13,22 @@ debug
 A small package with a global variable to turn on or off debugging across all packages
 that import debug.
 
+executable
+----------
+Reports on the status of the running executable, including what directory its
+binary was run from and whether any sibling processes are running.
+
 ganglia
 -------
 Contains wrapper functions for go-gmetric.
+
+instrumentation
+---------------
+Contains functions for Go runtime introspection.
+
+lifecycle
+---------
+Provides for clean daemon shutdown after receiving one or more signals.
 
 server
 ------
@@ -23,6 +38,10 @@ when shutting a server down.
 stopper
 -------
 A utility interface for stopping channels / functions / anything in a clean manner.
+
+strftime
+--------
+Pure-Go and system native (via cgo) implementations of POSIX strftime(3).
 
 suppress
 --------

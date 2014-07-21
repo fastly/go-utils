@@ -42,7 +42,7 @@ func GetSystemStats() SystemStats {
 	runtime.ReadMemStats(&mem)
 	stats.BytesAlloc = mem.Alloc
 	stats.BytesFromSystem = mem.Sys
-	stats.GCPauseTimesNs = float64(mem.PauseNs[(mem.NumGC+255)%256]) / 1e6
+	stats.GCPauseTimeLast = float64(mem.PauseNs[(mem.NumGC+255)%256]) / 1e6
 	var gcPauseMax uint64
 	for _, v := range mem.PauseNs {
 		if v > gcPauseMax {

@@ -37,9 +37,9 @@ const (
 // testStrftimePerl checks a range of times and uses the system's strftime(3)
 // as a reference for the correct answer. To access the system strftime, it
 // uses the core POSIX module of the first perl(1) found in the path. The test
-// can be skipped by setting the NO_PERL environment variable to non-empty.
+// is only run if the CHECK_AGAINST_PERL environment variable is non-empty.
 func testStrftimeAgainstPerl(t *testing.T, impl strftimeImpl, strict bool) {
-	if os.Getenv("NO_PERL") != "" {
+	if os.Getenv("CHECK_AGAINST_PERL") == "" {
 		t.Skip()
 		return
 	}

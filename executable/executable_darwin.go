@@ -3,11 +3,13 @@ package executable
 // +build darwin
 
 // #import <mach-o/dyld.h>
+// #import <libproc.h>
 import "C"
 
 import (
-	"errors"
 	"os"
+	"path/filepath"
+	"unsafe"
 )
 
 // documentation in executable_linux.go
@@ -21,17 +23,34 @@ func Path() (string, error) {
 		buf = make([]C.char, buflen)
 		C._NSGetExecutablePath(&buf[0], &buflen)
 	}
-	return C.GoStringN(&buf[0], C.int(buflen)), nil
+	return C.GoString(&buf[0]), nil
 }
 
-func FindDuplicateProcess(binary string) (*os.Process, int, error) {
-	return nil, 0, errors.New("FindDuplicateProcess unimplemented on Darwin")
+// procTable returns a map of pid to binary path. see
+// http://stackoverflow.com/questions/3018054/retrieve-names-of-running-processes
+func procTable() map[int]string {
+	n := C.proc_listpids(C.PROC_ALL_PIDS, 0, nil, 0)
+	pids := make([]C.int, n)
+	C.proc_listpids(C.PROC_ALL_PIDS, 0, unsafe.Pointer(&pids[0]), n)
+
+	m := make(map[int]string, len(pids))
+	var pathBuf [C.PROC_PIDPATHINFO_MAXSIZE]C.char
+	for _, pid := range pids {
+		if pid == 0 {
+			continue
+		}
+		C.proc_pidpath(pid, unsafe.Pointer(&pathBuf[0]), C.PROC_PIDPATHINFO_MAXSIZE)
+		m[int(pid)] = C.GoString(&pathBuf[0])
+	}
+	return m
 }
 
 func BinaryDuplicateProcessIDs(binary string) (pids []int, err error) {
-	return nil, errors.New("DuplicateProcessIDs unimplemented on Darwin")
-}
-
-func DuplicateProcessIDs() (pids []int, err error) {
-	return BinaryDuplicateProcessIDs("")
+	bin := filepath.Clean(binary)
+	for pid, path := range procTable() {
+		if pid != os.Getpid() && filepath.Clean(path) == bin {
+			pids = append(pids, pid)
+		}
+	}
+	return pids, nil
 }

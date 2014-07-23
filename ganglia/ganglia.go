@@ -302,5 +302,6 @@ func CommonGmetrics(gmetric MetricSender) {
 	if syscall.Getrusage(syscall.RUSAGE_SELF, &r) == nil {
 		gmetric("rusage_utime", fmt.Sprintf("%.6f", float64(r.Utime.Nano())/1e9), Float, "cpusecs", true)
 		gmetric("rusage_stime", fmt.Sprintf("%.6f", float64(r.Stime.Nano())/1e9), Float, "cpusecs", true)
+		gmetric("cpu_pct", fmt.Sprintf("%.4f", 100*float64((r.Utime.Nano()+r.Stime.Nano()))/1e9), Float, "%", true)
 	}
 }

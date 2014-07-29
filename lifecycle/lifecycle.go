@@ -69,11 +69,13 @@ func New(singleProcess bool) *Lifecycle {
 // other AddKillFunc functions can rely on.
 func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	vlog.VLogf("%s started", os.Args[0])
+	exitStatus := 0
 	select {
 	case sig := <-l.interrupt:
 		vlog.VLogf("Caught signal %q, shutting down", sig)
 	case <-l.fatalQuit:
 		vlog.VLogf("Caught fatal quit, shutting down")
+		exitStatus = 1
 	}
 
 	// wait for either confirmation that we finished or another interrupt
@@ -94,14 +96,14 @@ func (l *Lifecycle) RunWhenKilled(finalizer func(), timeout time.Duration) {
 	select {
 	case <-shutdown:
 		vlog.VLogf("Shutdown complete, goodbye")
-		os.Exit(0)
 	case <-t:
 		vlog.VLogf("Shutdown timeout exceeded (%v)", timeout)
-		os.Exit(1)
+		exitStatus = 1
 	case <-l.interrupt:
 		vlog.VLogf("Second interrupt, exiting")
-		os.Exit(1)
+		exitStatus = 1
 	}
+	os.Exit(exitStatus)
 }
 
 // AddKillFunc will add f to the list of functions to be ran
@@ -117,7 +119,10 @@ func (l *Lifecycle) AddKillFunc(f func()) {
 
 // FatalQuit will kill the lifecycle to continue into the RunWhenKilled function.
 func (l *Lifecycle) FatalQuit() {
-	l.fatalQuit <- struct{}{}
+	select {
+	case l.fatalQuit <- struct{}{}:
+	default:
+	}
 }
 
 // for debugging, show goroutine trace on receipt of USR1. uninstall by calling

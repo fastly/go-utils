@@ -14,7 +14,7 @@ type ChanStopper struct {
 }
 
 func NewChanStopper() *ChanStopper {
-	return &ChanStopper{Chan: make(chan struct{})}
+	return &ChanStopper{Chan: make(chan struct{}, 1)}
 }
 
 func (s *ChanStopper) Stop() {

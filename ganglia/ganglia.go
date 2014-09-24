@@ -7,6 +7,7 @@ package ganglia
 import (
 	"flag"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"log"
 	"net"
@@ -89,8 +90,8 @@ func (gr *Reporter) Configure(groupName, prefix string) *Reporter {
 	if gr == nil {
 		return nil
 	}
-	gr.prefix = prefix
-	gr.groupName = groupName
+	gr.prefix = html.EscapeString(prefix)
+	gr.groupName = html.EscapeString(groupName)
 	return gr
 }
 
@@ -227,6 +228,12 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 								return
 							}
 						}
+
+						// gmetad fails to escape quotes, eventually generating
+						// invalid xml. do it here as a workaround.
+						v = html.EscapeString(v)
+						name = html.EscapeString(name)
+						units = html.EscapeString(units)
 
 						n++
 						gm.SendMetricPackets(

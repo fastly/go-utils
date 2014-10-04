@@ -30,6 +30,11 @@ lifecycle
 ---------
 Provides for clean daemon shutdown after receiving one or more signals.
 
+privsep
+-------
+Library for implementing privilege-separated processes which can communicate
+with each other.
+
 server
 ------
 A package for managing listening sockets. Hides details of closing listening sockets

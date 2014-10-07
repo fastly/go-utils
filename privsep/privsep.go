@@ -19,9 +19,9 @@ import (
 // communicate the error back to the parent, which will return it in err.
 //
 // If the operation succeeds, the returned reader and writer will be connected
-// to the less-privileged child--identified by pid--after it calls
+// to the less-privileged child--identified by process--after it calls
 // MaybeBecomeChild.
-func CreateChild(username, name string, args []string, files []*os.File) (pid int, r io.Reader, w io.Writer, err error) {
+func CreateChild(username, name string, args []string, files []*os.File) (process *os.Process, r io.Reader, w io.Writer, err error) {
 	return createChild(username, name, args, files)
 }
 

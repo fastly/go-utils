@@ -1,10 +1,10 @@
 // +build none
 
-// This example demonstrates how to open a privileged listening port in the
-// parent and run an HTTP server attached to it in an unprivileged child. It
-// also shows how the parent can kill the child by its PID.
+// This example demonstrates how to open a (possibly privileged) listening port
+// in the parent and run an HTTP server attached to it in an unprivileged
+// child. It also shows how the parent can kill the child by its PID.
 
-// build with `go build $GOPATH/src/github.com/fastly/go-utils/privsep/_examples/high_port_example.go`
+// build with `go build $GOPATH/src/github.com/fastly/go-utils/privsep/_examples/listener_example.go`
 
 package main
 
@@ -69,7 +69,7 @@ func main() {
 		log.Fatalf("fd: %s", err)
 	}
 
-	pid, _, _, err := privsep.CreateChild(*flagUsername, os.Args[0], nil, []*os.File{sock})
+	proc, _, _, err := privsep.CreateChild(*flagUsername, os.Args[0], nil, []*os.File{sock})
 	if err != nil {
 		log.Fatalf("CreateChild failed: %s", err)
 	}
@@ -77,11 +77,7 @@ func main() {
 	sock.Close()
 
 	// tidy up so child doesn't run forever
-	defer func() {
-		if p, err := os.FindProcess(pid); err == nil {
-			p.Kill()
-		}
-	}()
+	defer proc.Kill()
 
 	parent(laddr)
 }

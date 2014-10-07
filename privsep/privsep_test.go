@@ -10,7 +10,9 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"syscall"
 	"testing"
+	"time"
 )
 
 var isChild bool
@@ -36,16 +38,10 @@ func TestPrivsep(t *testing.T) {
 		t.Errorf("Pipe: %s", err)
 	}
 
-	pid, r, w, err := CreateChild("nobody", os.Args[0], testArgs, []*os.File{w1})
+	proc, r, w, err := CreateChild("nobody", os.Args[0], testArgs, []*os.File{w1})
 	if err != nil {
 		t.Fatalf("CreateChild failed: %s", err)
 	}
-
-	defer func() {
-		if p, err := os.FindProcess(pid); err == nil {
-			p.Kill()
-		}
-	}()
 
 	io.WriteString(w, ping)
 
@@ -71,6 +67,24 @@ func TestPrivsep(t *testing.T) {
 		t.Logf("got expected reply %q", reply)
 	} else {
 		t.Errorf("expected %q, got %q", foo, reply)
+	}
+
+	c := make(chan *os.ProcessState, 1)
+	go func() {
+		proc.Kill()
+		state, _ := proc.Wait()
+		c <- state
+	}()
+
+	select {
+	case state := <-c:
+		if status, ok := state.Sys().(syscall.WaitStatus); ok {
+			t.Logf("child exited with status %d", status.ExitStatus())
+		} else {
+			t.Log("child exited")
+		}
+	case <-time.After(time.Second):
+		t.Error("timed out waiting for child to die")
 	}
 }
 

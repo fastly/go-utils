@@ -1,7 +1,7 @@
 // +build none
 
 // This example demonstrates how to use a pair of pipes to communicate between
-// a privileged parent and unprivleged child.
+// a privileged parent and unprivileged child.
 
 // build with `go build $GOPATH/src/github.com/fastly/go-utils/privsep/_examples/pipe_example.go`
 

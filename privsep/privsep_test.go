@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -29,16 +30,13 @@ func TestPrivsep(t *testing.T) {
 		t.Skip("test must run as root: go test -c github.com/fastly/go-utils/privsep && sudo ./privsep.test -test.v")
 	}
 
-	// flags should be passed through and correctly ordered
-	args := []string{"--flag", "arg"}
-
 	// extra fds should show up in order
 	r1, w1, err := os.Pipe()
 	if err != nil {
 		t.Errorf("Pipe: %s", err)
 	}
 
-	pid, r, w, err := CreateChild("nobody", os.Args[0], args, []*os.File{w1})
+	pid, r, w, err := CreateChild("nobody", os.Args[0], testArgs, []*os.File{w1})
 	if err != nil {
 		t.Fatalf("CreateChild failed: %s", err)
 	}
@@ -87,7 +85,14 @@ func init() {
 	}
 }
 
+var testArgs = []string{"--flag", "arg"}
+
 func child(r io.Reader, w, w1 io.Writer) {
+	args := os.Args[1:]
+	if !reflect.DeepEqual(args, testArgs) {
+		log.Fatalf("got args %+v, expected %+v", args, testArgs)
+	}
+
 	for _, e := range envVars {
 		if v := os.Getenv(e); v != "" {
 			log.Fatalf("%s env var should be empty, is %q", e, v)

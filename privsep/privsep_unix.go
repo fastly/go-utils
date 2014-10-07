@@ -37,7 +37,7 @@ func createChild(username, bin string, args []string, files []*os.File) (pid int
 		return
 	}
 
-	child := exec.Command(bin, origArgs[1:]...)
+	child := exec.Command(bin, args...)
 
 	// childIn becomes fd 3 in child, childOut becomes fd 4, etc
 	child.ExtraFiles = append(child.ExtraFiles, []*os.File{childIn, childOut}...)

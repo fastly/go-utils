@@ -19,9 +19,10 @@ import (
 // communicate the error back to the parent, which will return it in err.
 //
 // If the operation succeeds, the returned reader and writer will be connected
-// to the less-privileged child after it calls MaybeBecomeChild.
-func CreateChild(username, name string, args ...string) (r io.Reader, w io.Writer, err error) {
-	return createChild(username, name, args)
+// to the less-privileged child--identified by pid--after it calls
+// MaybeBecomeChild.
+func CreateChild(username, name string, args []string, files []*os.File) (pid int, r io.Reader, w io.Writer, err error) {
+	return createChild(username, name, args, files)
 }
 
 // MaybeBecomeChild examines its environment to see if it was started by
@@ -35,7 +36,7 @@ func CreateChild(username, name string, args ...string) (r io.Reader, w io.Write
 // which were returned by CreateChild in the parent process.
 //
 // The same binary may be both parent and child.
-func MaybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, err error) {
+func MaybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, files []*os.File, err error) {
 	return maybeBecomeChild()
 }
 
@@ -67,3 +68,6 @@ func cleanEnv() {
 		}
 	}
 }
+
+// used in tests
+var envVars = []string{"__privsep_phase", "__privsep_user", "__privsep_fds"}

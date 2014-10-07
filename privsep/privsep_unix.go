@@ -12,12 +12,20 @@ import (
 	"os/user"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/fastly/go-utils/executable"
 )
 
-func createChild(username, bin string, args []string) (r io.Reader, w io.Writer, err error) {
+const (
+	exitOK               = 0
+	exitOSFailure        = 1
+	exitDescribedFailure = 2
+	exitFailsafe         = 3
+)
+
+func createChild(username, bin string, args []string, files []*os.File) (pid int, r io.Reader, w io.Writer, err error) {
 	// create a pipe for each direction
 	var childIn, childOut, parentIn, parentOut *os.File
 	childIn, parentOut, err = os.Pipe()
@@ -31,20 +39,45 @@ func createChild(username, bin string, args []string) (r io.Reader, w io.Writer,
 
 	child := exec.Command(bin, origArgs[1:]...)
 
-	// childIn becomes fd 3 in child, childOut becomes fd 4
+	// childIn becomes fd 3 in child, childOut becomes fd 4, etc
 	child.ExtraFiles = append(child.ExtraFiles, []*os.File{childIn, childOut}...)
+	if len(files) > 0 {
+		child.ExtraFiles = append(child.ExtraFiles, files...)
+	}
 	child.Stdout = os.Stdout
 	child.Stderr = os.Stderr
 	child.Env = append(os.Environ(), []string{
 		"__privsep_phase=dropping",
 		"__privsep_user=" + username,
+		"__privsep_fds=" + strconv.Itoa(len(files)),
 	}...)
 
-	if err = child.Run(); err != nil {
-		// phase 1 child only writes to childOut when there's an error
-		line, _ := bufio.NewReader(parentIn).ReadString('\n')
-		err = fmt.Errorf("couldn't drop privileges: %q", line)
+	err = child.Start()
+	if err != nil {
+		err = fmt.Errorf("couldn't start child: %s", err)
 		return
+	}
+
+	var childReply string
+
+	err = child.Wait()
+	if err != nil {
+		status := child.ProcessState.Sys().(syscall.WaitStatus).ExitStatus()
+		if status == exitDescribedFailure {
+			if childReply, err = bufio.NewReader(parentIn).ReadString('\n'); err == nil {
+				err = fmt.Errorf("failure starting unprivileged child: %s", strings.TrimSpace(childReply))
+				return
+			}
+		}
+		err = fmt.Errorf("unknown error starting unprivileged child: %s", err)
+	}
+
+	if childReply, err = bufio.NewReader(parentIn).ReadString('\n'); err == nil {
+		pid, err = strconv.Atoi(strings.TrimSpace(childReply))
+		if err != nil {
+			err = fmt.Errorf("bad response from child: %s", err)
+			return
+		}
 	}
 
 	// parent doesn't need these anymore
@@ -57,7 +90,7 @@ func createChild(username, bin string, args []string) (r io.Reader, w io.Writer,
 	return
 }
 
-func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, err error) {
+func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, files []*os.File, err error) {
 
 	// dropping privileges is a two-phase process since a Go program cannot
 	// completely drop privileges after the runtime has started; only the
@@ -76,7 +109,7 @@ func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, err error) {
 	case "dropping":
 		// phase 1: we're the child, but haven't dropped privileges
 
-		defer os.Exit(0) // never return to caller from this phase
+		defer os.Exit(exitFailsafe) // never return to caller from this phase
 
 		var bin string
 		bin, err = executable.Path()
@@ -91,24 +124,33 @@ func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, err error) {
 			reportError(err)
 		}
 
+		fds := []uintptr{
+			0, 1, 2, // inherit stdin/out/err
+			3, 4, // childIn and childOut from createChild
+			// user fds start at 5
+		}
+		sfds := os.Getenv("__privsep_fds")
+		nfds, _ := strconv.Atoi(sfds)
+		for i := 0; i < nfds; i++ {
+			fds = append(fds, uintptr(i+5))
+		}
+
 		cleanEnv()
 		os.Setenv("__privsep_phase", "dropped")
+		os.Setenv("__privsep_fds", sfds)
 
-		attr := syscall.ProcAttr{
-			Env: os.Environ(),
-			Files: []uintptr{
-				0, 1, 2, // inherit stdin/out/err
-				3, 4, // childIn and childOut from createChild
-			},
-		}
+		attr := syscall.ProcAttr{Env: os.Environ(), Files: fds}
 
 		// ideally we could just exec so the parent could wait() for the final
 		// child, but syscall.Exec doesn't accept a ProcAttr, so instead use
 		// StartProcess which forks then execs
 		args := append([]string{bin}, origArgs[1:]...)
-		if _, _, err = syscall.StartProcess(bin, args, &attr); err != nil {
+		var pid int
+		if pid, _, err = syscall.StartProcess(bin, args, &attr); err != nil {
 			reportError(err)
 		}
+
+		replyToParent(strconv.Itoa(pid))
 
 	case "dropped":
 		// phase 2: we're the child, now without privileges
@@ -120,10 +162,19 @@ func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, err error) {
 			return
 		}
 
+		nfds, _ := strconv.Atoi(os.Getenv("__privsep_fds"))
+
 		cleanEnv()
 
 		r = os.NewFile(3, "input")
 		w = os.NewFile(4, "output")
+
+		if nfds > 0 {
+			files = make([]*os.File, nfds)
+			for i := 0; i < nfds; i++ {
+				files[i] = os.NewFile(uintptr(i)+5, "output")
+			}
+		}
 	}
 
 	return
@@ -167,6 +218,10 @@ func reportError(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(os.NewFile(4, ""), err.Error())
-	os.Exit(1)
+	replyToParent(err.Error())
+	os.Exit(exitDescribedFailure)
+}
+
+func replyToParent(reply string) {
+	fmt.Fprintln(os.NewFile(4, ""), reply)
 }

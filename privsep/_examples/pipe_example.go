@@ -1,11 +1,15 @@
 // +build none
 
-// build with `go build $GOPATH/src/github.com/fastly/go-utils/privsep/_example/privsep_example.go`
+// This example demonstrates how to use a pair of pipes to communicate between
+// a privileged parent and unprivleged child.
+
+// build with `go build $GOPATH/src/github.com/fastly/go-utils/privsep/_examples/pipe_example.go`
 
 package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -16,7 +20,9 @@ import (
 )
 
 func main() {
-	isChild, r, w, err := privsep.MaybeBecomeChild()
+	flagUsername := flag.String("username", "nobody", "username for the unprivileged child")
+
+	isChild, r, w, _, err := privsep.MaybeBecomeChild()
 	if err != nil {
 		log.Fatalf("MaybeBecomeChild failed: %s", err)
 	}
@@ -37,7 +43,7 @@ func main() {
 		log.Print("Warning: this example only works when run as the root user")
 	}
 
-	r, w, err = privsep.CreateChild("nobody", os.Args[0])
+	_, r, w, err = privsep.CreateChild(*flagUsername, os.Args[0], nil, nil)
 	if err != nil {
 		log.Fatalf("CreateChild failed: %s", err)
 	}

@@ -54,6 +54,13 @@ func check(t *testing.T, clientName, serverName string, shouldPass bool) {
 		return
 	}
 
+	if clientConfig.MinVersion != tls.VersionTLS12 {
+		t.Errorf("expected TLS minimum version of %v, got %v", clientConfig.MinVersion, tls.VersionTLS12)
+	}
+	if serverConfig.MinVersion != tls.VersionTLS12 {
+		t.Errorf("expected TLS minimum version of %v, got %v", serverConfig.MinVersion, tls.VersionTLS12)
+	}
+
 	server := NewMockServer()
 	server.SetListener(tls.NewListener(server.Listener(), serverConfig))
 	listener := server.Listener()

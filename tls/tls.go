@@ -189,6 +189,7 @@ func LoadPackagedKeypair(name string) (cert tls.Certificate, certFile, keyFile s
 func GenerateConfig(client bool, keyPairName string, caCertNames []string) (config *tls.Config, err error) {
 	config = &tls.Config{
 		InsecureSkipVerify: _insecure,
+		MinVersion:         tls.VersionTLS12,
 	}
 
 	label := "server"

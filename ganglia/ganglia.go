@@ -114,7 +114,7 @@ func NewGmetric() (*gmetric.Gmetric, error) {
 		return nil, fmt.Errorf("No udp_send_channel stanzas found in %s", GmondConfig)
 	}
 
-	servers := make([]gmetric.GmetricServer, 0)
+	servers := make([]gmetric.Server, 0)
 	for _, stanza := range stanzas {
 		var host, port string
 		for _, match := range gmondHostPortRe.FindAllStringSubmatch(stanza[1], 2) {
@@ -137,7 +137,7 @@ func NewGmetric() (*gmetric.Gmetric, error) {
 		}
 		for _, ip := range ips {
 			vlog.VLogf("Reporting to Ganglia server at %s:%d", ip, portNum)
-			servers = append(servers, gmetric.GmetricServer{ip, portNum})
+			servers = append(servers, gmetric.Server{ip, portNum})
 		}
 	}
 

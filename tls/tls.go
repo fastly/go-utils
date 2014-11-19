@@ -16,12 +16,23 @@ import (
 	"github.com/fastly/go-utils/vlog"
 )
 
+type AuthStatus int
+
+const (
+	AuthSuccess AuthStatus = iota
+	AuthFailure
+)
+
 var (
 	_certPath,
 	_adminuser,
 	_adminpass,
 	_authrealm string
 	_insecure bool
+	// AuthRequest is called on handler authorizations.
+	// An example use is setting this function to log
+	// valid or invalid authorizations.
+	AuthRequest func(r *http.Request, status AuthStatus)
 )
 
 // Init sets the CertPath to search for TLS certs and keys. If CertPath is empty, $BIN/../certs
@@ -293,8 +304,14 @@ func WrapHandlerForAuthCreds(h http.Handler, adminuser, adminpass, authrealm str
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isAuthenticated(r, adminuser, adminpass) {
+			if AuthRequest != nil {
+				AuthRequest(r, AuthSuccess)
+			}
 			h.ServeHTTP(w, r)
 		} else {
+			if AuthRequest != nil {
+				AuthRequest(r, AuthFailure)
+			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+authrealm+`"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Unauthorized\n"))
@@ -311,8 +328,14 @@ func WrapHandlerFuncForAuthCreds(h http.HandlerFunc, adminuser, adminpass, authr
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isAuthenticated(r, adminuser, adminpass) {
+			if AuthRequest != nil {
+				AuthRequest(r, AuthSuccess)
+			}
 			h(w, r)
 		} else {
+			if AuthRequest != nil {
+				AuthRequest(r, AuthFailure)
+			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="`+authrealm+`"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Unauthorized\n"))

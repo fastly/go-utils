@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/fastly/go-utils/executable"
+	"github.com/fastly/go-utils/privsep/internal"
 )
 
 const (
@@ -163,10 +164,10 @@ func dropPrivs() error {
 	}
 
 	// change gid first since it can't be changed after dropping root uid
-	if err := syscall.Setgid(gid); err != nil {
+	if err := internal.Setgid(gid); err != nil {
 		return err
 	}
-	if err := syscall.Setuid(uid); err != nil {
+	if err := internal.Setuid(uid); err != nil {
 		return err
 	}
 

@@ -1,4 +1,4 @@
-// +build linux
+// +build linux darwin
 
 package privsep
 
@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	"github.com/fastly/go-utils/executable"
-	"github.com/fastly/go-utils/privsep/internal"
 )
 
 const (
@@ -164,10 +163,10 @@ func dropPrivs() error {
 	}
 
 	// change gid first since it can't be changed after dropping root uid
-	if err := internal.Setgid(gid); err != nil {
+	if err := setgid(gid); err != nil {
 		return err
 	}
-	if err := internal.Setuid(uid); err != nil {
+	if err := setuid(uid); err != nil {
 		return err
 	}
 

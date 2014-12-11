@@ -1,4 +1,4 @@
-// +build linux
+// +build linux darwin
 
 package privsep
 
@@ -163,10 +163,10 @@ func dropPrivs() error {
 	}
 
 	// change gid first since it can't be changed after dropping root uid
-	if err := syscall.Setgid(gid); err != nil {
+	if err := setgid(gid); err != nil {
 		return err
 	}
-	if err := syscall.Setuid(uid); err != nil {
+	if err := setuid(uid); err != nil {
 		return err
 	}
 

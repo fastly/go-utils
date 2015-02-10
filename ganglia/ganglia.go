@@ -63,6 +63,7 @@ type Reporter struct {
 	callbacks []ReporterCallback
 	previous  map[string]gmetricSample
 	groupName string
+	dmax      uint32
 }
 
 // MetricSender takes the following parameters:
@@ -92,6 +93,17 @@ func (gr *Reporter) Configure(groupName, prefix string) *Reporter {
 	}
 	gr.prefix = html.EscapeString(prefix)
 	gr.groupName = html.EscapeString(groupName)
+	return gr
+}
+
+// SetDmax configures the amount of time that metrics are valid for in the
+// tsdb. The default of 0 means forever. Time resolution is only respected to
+// the second.
+func (gr *Reporter) SetDmax(dmax time.Duration) *Reporter {
+	if gr == nil {
+		return nil
+	}
+	gr.dmax = uint32(dmax.Seconds())
 	return gr
 }
 
@@ -170,7 +182,14 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 		return nil
 	}
 	stopper := stopper.NewChanStopper()
-	gr := &Reporter{stopper, "", make([]ReporterCallback, 0), make(map[string]gmetricSample), groupName}
+	gr := &Reporter{
+		ChanStopper: stopper,
+		prefix:      "",
+		callbacks:   []ReporterCallback{},
+		previous:    make(map[string]gmetricSample),
+		groupName:   groupName,
+		dmax:        0,
+	}
 	go func() {
 		defer stopper.Done()
 		for {
@@ -240,7 +259,7 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 							gr.prefix+name, v, metricType, units,
 							gmetric.SLOPE_BOTH,
 							uint32(interval.Seconds()), // tmax is the expected reporting interval
-							0, // dmax is the time to keep values in tsdb; 0 means forever
+							gr.dmax,
 							gr.groupName,
 							gmetric.PACKET_BOTH, conns,
 						)
@@ -248,12 +267,12 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 							if rate {
 								log.Printf("gmetric: name=%q, rate=%q, value=%q, type=%d, units=%q, slope=%d, tmax=%d, dmax=%v, group=%q, packet=%d",
 									gr.prefix+name, v, value, metricType, units, gmetric.SLOPE_BOTH,
-									uint32(interval.Seconds()), 0, gr.groupName, gmetric.PACKET_BOTH,
+									uint32(interval.Seconds()), gr.dmax, gr.groupName, gmetric.PACKET_BOTH,
 								)
 							} else {
 								log.Printf("gmetric: name=%q, value=%q, type=%d, units=%q, slope=%d, tmax=%d, dmax=%v, group=%q, packet=%d",
 									gr.prefix+name, v, metricType, units, gmetric.SLOPE_BOTH,
-									uint32(interval.Seconds()), 0, gr.groupName, gmetric.PACKET_BOTH,
+									uint32(interval.Seconds()), gr.dmax, gr.groupName, gmetric.PACKET_BOTH,
 								)
 							}
 						}

@@ -261,7 +261,11 @@ func GenerateConfig(client bool, keyPairName string, caCertNames []string) (conf
 // certificate and require that it be provided and signed by one of the named
 // certs.
 func ConfigureServer(serverKeyPairName string, clientCertNames ...string) (config *tls.Config, err error) {
-	return GenerateConfig(false, serverKeyPairName, clientCertNames)
+	config, err = GenerateConfig(false, serverKeyPairName, clientCertNames)
+	if config != nil {
+		config.CipherSuites = PreferredCipherSuites()
+	}
+	return
 }
 
 // ConfigureClient returns a TLS client configuration that presents clientKeyPair
@@ -270,6 +274,21 @@ func ConfigureServer(serverKeyPairName string, clientCertNames ...string) (confi
 // used.
 func ConfigureClient(clientKeyPairName string, serverCertNames ...string) (config *tls.Config, err error) {
 	return GenerateConfig(true, clientKeyPairName, serverCertNames)
+}
+
+// PreferredCipherSuites returns the set of default cipher suites, minus RC4
+// and 3DES suites, with ECDSA preferred over RSA.
+func PreferredCipherSuites() []uint16 {
+	return []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	}
 }
 
 // SetWrapCreds stores the adminuser, adminpass, and authrealm. These parameters

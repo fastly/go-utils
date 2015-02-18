@@ -42,6 +42,14 @@ func TestTLSProxyToUnknown(t *testing.T) {
 	check(t, "test-proxy-client", "test-unknown-server", false)
 }
 
+var badCipherSuites = map[uint16]bool{
+	tls.TLS_RSA_WITH_RC4_128_SHA:            true,
+	tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA:       true,
+	tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA:    true,
+	tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA:      true,
+	tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: true,
+}
+
 func check(t *testing.T, clientName, serverName string, shouldPass bool) {
 	clientConfig, err := ttls.ConfigureClient(clientName, "test-tls-ca")
 	if err != nil {
@@ -59,6 +67,12 @@ func check(t *testing.T, clientName, serverName string, shouldPass bool) {
 	}
 	if serverConfig.MinVersion != tls.VersionTLS12 {
 		t.Errorf("expected TLS minimum version of %v, got %v", serverConfig.MinVersion, tls.VersionTLS12)
+	}
+
+	for _, suite := range serverConfig.CipherSuites {
+		if badCipherSuites[suite] {
+			t.Errorf("server allows blacklisted cipher suite %v", suite)
+		}
 	}
 
 	server := NewMockServer()

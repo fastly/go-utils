@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fastly/go-utils/suppress"
@@ -31,33 +33,43 @@ func TestSilencer5(t *testing.T) {
 }
 
 
-func test(t *testing.T, tags []string, invocations int, testTime time.Duration, suppressTime time.Duration, expectedPerInvocation int) {
-	var attempts, firings, errors int
-	lasts := make(map[string]time.Time)
+func test(t *testing.T, ids []string, invocations int, testTime time.Duration, suppressTime time.Duration, expectedPerInvocation int) {
+	var attempts, firings, errors int64
+	var lasts struct {
+		sync.RWMutex
+		m map[string]time.Time
+	}
+	lasts.m = make(map[string]time.Time)
 
-	f := func(count int, id string) {
-		last := lasts[id]
+	f := func(count int, tag string) {
+		lasts.RLock()
+		last := lasts.m[tag]
+		lasts.RUnlock()
+
 		now := time.Now()
 		if last.IsZero() || now.Sub(last) >= suppressTime {
-			firings++
+			atomic.AddInt64(&firings, 1)
 		} else {
 			t.Logf("Error %q at %v; delta=%v attempts=%d last=%v count=%d",
-				id, time.Now(), now.Sub(last), attempts, last, count)
-			errors++
+				tag, time.Now(), now.Sub(last), atomic.LoadInt64(&attempts), last, count)
+			atomic.AddInt64(&errors, 1)
 		}
-		lasts[id] = now
+
+		lasts.Lock()
+		lasts.m[tag] = now
+		lasts.Unlock()
 	}
 
-	expected := invocations * len(tags) * expectedPerInvocation
+	expected := invocations * len(ids) * expectedPerInvocation
 
 	start := time.Now()
-	end := start.Add(testTime * 11 / 10)
+	end := start.Add(testTime)
 	for time.Now().Before(end) {
-		attempts++
-		if firings >= expected {
+		att := atomic.AddInt64(&attempts, 1)
+		if atomic.LoadInt64(&firings) >= int64(expected) {
 			break
 		}
-		tag := tags[attempts%len(tags)]
+		tag := ids[att%int64(len(ids))]
 		// use separate calls so program counter is different for each
 		if invocations > 0 {
 			suppress.For(suppressTime, tag, f)
@@ -81,11 +93,11 @@ func test(t *testing.T, tags []string, invocations int, testTime time.Duration, 
 
 	t.Logf("Ran %d iterations in %v (%v with wait), fired correctly %d times (wanted %d) and %d incorrectly",
 		attempts, elapsed, longElapsed, firings, expected, errors)
-	if firings != expected {
+	if frng := atomic.LoadInt64(&firings); frng != int64(expected) {
 		t.Errorf("Expected %d firings, got %d", expected, firings)
 	}
-	if errors > 0 {
-		t.Errorf("Silencer failed to suppress %d times", errors)
+	if e := atomic.LoadInt64(&errors); e > 0 {
+		t.Errorf("Silencer failed to suppress %d times", e)
 	}
 }
 

@@ -7,27 +7,25 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
-// hide the variable and the struct because they gon' find you
-// also because it's meant to be a singleton
-var _suppressor *suppressor
-
 type suppressorState struct {
-	next     time.Time
-	count    int
-	lastFunc func(int, string)
+	count int64
+	f     *func(int, string)
 }
 
-type suppressor struct {
-	sync.Mutex
-	states map[string]*suppressorState
+type locKey struct {
+	pc uintptr
+	id string
 }
 
-func init() {
-	_suppressor = &suppressor{states: make(map[string]*suppressorState)}
-}
+var (
+	lock        sync.RWMutex
+	suppressors = make(map[locKey]*suppressorState, 100)
+)
 
 // For aggregates repeated calls to itself and calls f once every duration
 // with the number of aggregated calls and the tag coalesced with the calling
@@ -43,45 +41,46 @@ func For(duration time.Duration, id string, f func(int, string)) {
 // this function should have depth >= 1.
 func WrapFor(depth int, duration time.Duration, id string, f func(int, string)) {
 	pc, file, line, _ := runtime.Caller(depth)
-	file = filepath.Base(file)
-	key := fmt.Sprintf("%d%s", pc, id)
-	tag := fmt.Sprintf("%s:%d %s", file, line, id)
+	key := locKey{pc, id}
 
-	_suppressor.Lock()
-	state, exists := _suppressor.states[key]
+	lock.RLock()
+	state, exists := suppressors[key]
+	lock.RUnlock()
 	if !exists {
-		state = new(suppressorState)
-		_suppressor.states[key] = state
+		lock.Lock()
+		state, exists = suppressors[key]
+		if !exists {
+			state = &suppressorState{count: -1, f: &f}
+			suppressors[key] = state
+		}
+		lock.Unlock()
 	}
 
-	state.count++
-	state.lastFunc = f
+	if atomic.AddInt64(&state.count, 1) > 0 {
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&state.f)), unsafe.Pointer(&f))
+		return
+	}
 
-	if state.count == 1 {
-		now := time.Now()
-		if state.next.Before(now) {
-			// no need to suppress
-			state.lastFunc(state.count, tag)
-			state.next = now.Add(duration)
-			state.count = 0
-		} else {
-			// this is the first time we've suppressed, so schedule the next
-			// firing. subsequent passes will only increment the counter.
-			go func() {
-				_suppressor.Lock()
-				wait := state.next.Sub(time.Now())
-				_suppressor.Unlock()
+	tag := fmt.Sprintf("%s:%d %s", filepath.Base(file), line, id)
 
-				time.Sleep(wait)
+	// Subsequent calls will be suppressed while this goroutine is running.
+	// Every `duration`, it checks to see how many calls have been suppressed.
+	// If there have been none, it exits, and sets the suppressorState count to
+	// -1, indicating that there is no active suppression.
+	go func() {
+		ticker := time.NewTicker(duration)
+		defer ticker.Stop()
 
-				_suppressor.Lock()
-				state.lastFunc(state.count, tag)
-				state.next = time.Now().Add(duration)
-				state.count = 0
-				_suppressor.Unlock()
-			}()
+		for range ticker.C {
+			if atomic.CompareAndSwapInt64(&state.count, 0, -1) {
+				return
+			}
+			count := atomic.LoadInt64(&state.count)
+			f := *(*func(int, string))(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&state.f))))
+			f(int(count), tag)
+			atomic.AddInt64(&state.count, -count)
 		}
-	} // else state.count > 1 and a flush has already been scheduled
+	}()
 
-	_suppressor.Unlock()
+	f(1, tag)
 }

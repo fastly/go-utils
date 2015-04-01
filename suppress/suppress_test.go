@@ -3,6 +3,7 @@ package suppress_test
 import (
 	"testing"
 
+	"math"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -47,7 +48,7 @@ func test(t *testing.T, ids []string, invocations int, testTime time.Duration, s
 		lasts.RUnlock()
 
 		now := time.Now()
-		if last.IsZero() || now.Sub(last) >= suppressTime {
+		if last.IsZero() || math.Abs(float64(now.Sub(last)-suppressTime)) < float64(5*time.Millisecond) {
 			atomic.AddInt64(&firings, 1)
 		} else {
 			t.Logf("Error %q at %v; delta=%v attempts=%d last=%v count=%d",
@@ -91,12 +92,14 @@ func test(t *testing.T, ids []string, invocations int, testTime time.Duration, s
 	elapsed := finished.Sub(start)
 	longElapsed := finishedAndWaited.Sub(start)
 
+	frng := atomic.LoadInt64(&firings)
+	e := atomic.LoadInt64(&errors)
 	t.Logf("Ran %d iterations in %v (%v with wait), fired correctly %d times (wanted %d) and %d incorrectly",
-		attempts, elapsed, longElapsed, firings, expected, errors)
-	if frng := atomic.LoadInt64(&firings); frng != int64(expected) {
-		t.Errorf("Expected %d firings, got %d", expected, firings)
+		attempts, elapsed, longElapsed, frng, expected, e)
+	if frng != int64(expected) {
+		t.Errorf("Expected %d firings, got %d", expected, frng)
 	}
-	if e := atomic.LoadInt64(&errors); e > 0 {
+	if e > 0 {
 		t.Errorf("Silencer failed to suppress %d times", e)
 	}
 }
@@ -108,12 +111,16 @@ func TestSilencerStalled(t *testing.T) {
 	}
 	events := make([]Event, 0)
 
+	var mu sync.Mutex
+
 	// fire 5 events in rapid succession, all within the suppress window. the
 	// first call should happen immediately but the next four should be
 	// coalesced at the end of the suppress period.
 	start := time.Now()
 	for i := 0; i < 5; i++ {
 		suppress.For(100*time.Millisecond, "anon", func(n int, tag string) {
+			mu.Lock()
+			defer mu.Unlock()
 			events = append(events, Event{time.Now(), n})
 			t.Logf("%v", tag)
 		})
@@ -121,6 +128,8 @@ func TestSilencerStalled(t *testing.T) {
 	}
 	time.Sleep(start.Add(110 * time.Millisecond).Sub(time.Now()))
 
+	mu.Lock()
+	defer mu.Unlock()
 	if len(events) != 2 || events[0].n != 1 || events[1].n != 4 {
 		t.Errorf("unexpected event stream: %+v", events)
 	}

@@ -279,3 +279,37 @@ func TestCertCreator(t *testing.T) {
 		t.Errorf("timed out on wg.Wait")
 	}
 }
+
+func TestCAIntermediate(t *testing.T) {
+	cc := tls.NewCertCreator()
+	cc.KeySize = 512
+	prefix := "testcerts/intermediatetest"
+
+	defer func() {
+		for _, f := range []string{
+			"-ca-key.pem",
+			"-ca-cert.pem",
+			"-intermediate-key.pem",
+			"-intermediate-cert.pem",
+			"-server-key.pem",
+			"-server-cert.pem",
+		} {
+			os.Remove(prefix + f)
+		}
+	}()
+
+	root, err := cc.GenerateRootKeyPair(prefix+"-ca", "Test CA")
+	if err != nil {
+		t.Fatalf("Couldn't generate CA cert: %s", err)
+	}
+
+	intermediate, err := cc.GenerateKeyPair(tls.CA, root, prefix+"-intermediate", "Test Intermediate")
+	if err != nil {
+		t.Fatalf("Couldn't generate intermediate cert: %s", err)
+	}
+
+	_, err = cc.GenerateKeyPair(tls.SERVER, intermediate, prefix+"-server", "example.com", "*.example.com")
+	if err != nil {
+		t.Fatalf("Couldn't generate server cert: %s", err)
+	}
+}

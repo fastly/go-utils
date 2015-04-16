@@ -173,6 +173,7 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 		return nil, err
 	}
 
+	origParent := parent
 	if parent == nil {
 		// CA signs itself
 		parent = &KeyPair{&template, privKey}
@@ -192,7 +193,7 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 
 	// check that the cert verifies against its own CA
 	roots := x509.NewCertPool()
-	if purpose == CA {
+	if origParent == nil {
 		roots.AddCert(cert)
 	} else {
 		roots.AddCert(parent.Cert)

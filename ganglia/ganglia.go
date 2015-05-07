@@ -302,7 +302,7 @@ func (g *Reporter) Stop() {
 	if g == nil {
 		return
 	}
-	g.Stop()
+	g.ChanStopper.Stop()
 }
 
 func CommonGmetrics(gmetric MetricSender) {

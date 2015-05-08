@@ -11,7 +11,7 @@ import (
 
 // Verbose determines whether calls to V* functions actually log or not.
 var Verbose bool
-var suppressDur time.Duration
+var suppressDur = time.Second
 
 // SetSuppressDuration sets the time for repeated log calls to be
 // suppressed and coalesced.

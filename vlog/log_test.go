@@ -14,11 +14,13 @@ import (
 
 func TestSilencerLogfQuiet(t *testing.T) {
 	res := testLogfQuiet(t, false)
-	pattern := "(?s:\\d Line 3 message 0.*\\d Line 4 message 0.*\\d \\[4x\\] Line 3 message 4.*\\d \\[4x\\] Line 4 message 4)"
-	if matched, err := regexp.Match(pattern, []byte(res)); err != nil {
-		t.Errorf("error in regexp: %s", err)
-	} else if !matched {
-		t.Errorf("couldn't match /%s/ against %q", pattern, res)
+	patterns := []string{"(?s:\\d Line 3 message 0.*\\d Line 4 message 0)", "\\d \\[4x\\] Line 3 message 4", "\\d \\[4x\\] Line 4 message 4"}
+	for _, pattern := range patterns {
+		if matched, err := regexp.Match(pattern, res); err != nil {
+			t.Errorf("error in regexp: %s", err)
+		} else if !matched {
+			t.Errorf("couldn't match /%s/ against %q", pattern, res)
+		}
 	}
 }
 
@@ -28,7 +30,7 @@ func TestSilencerVLogfQuietVerbose(t *testing.T) {
 	res := testLogfQuiet(t, true)
 	patterns := []string{"Line 1 message 0", "Line 2 message 0", "\\[4x\\] Line 1 message 4", "\\[4x\\] Line 2 message 4"}
 	for _, pattern := range patterns {
-		if matched, err := regexp.Match(pattern, []byte(res)); err != nil {
+		if matched, err := regexp.Match(pattern, res); err != nil {
 			t.Errorf("error in regexp: %s", err)
 		} else if !matched {
 			t.Errorf("couldn't match /%s/ against %q", pattern, res)
@@ -39,12 +41,12 @@ func TestSilencerVLogfQuietVerbose(t *testing.T) {
 func TestSilencerVLogfQuietNoVerbose(t *testing.T) {
 	vlog.Verbose = false
 
-	if testLogfQuiet(t, true) != "" {
+	if len(testLogfQuiet(t, true)) != 0 {
 		t.Errorf("Expected no output from VLogfQuiet with Verbose=false")
 	}
 }
 
-func testLogfQuiet(t *testing.T, vlogf bool) string {
+func testLogfQuiet(t *testing.T, vlogf bool) []byte {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
 
@@ -65,5 +67,5 @@ func testLogfQuiet(t *testing.T, vlogf bool) string {
 
 	log.SetOutput(os.Stdout)
 
-	return string(buf.Bytes())
+	return buf.Bytes()
 }

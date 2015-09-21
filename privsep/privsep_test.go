@@ -29,6 +29,8 @@ func TestPrivsep(t *testing.T) {
 	}
 
 	if os.Getuid() != 0 {
+		// `sudo go test` doesn't work because it writes the test binary to
+		// /tmp as root with 700 permissions
 		t.Skip("test must run as root: go test -c github.com/fastly/go-utils/privsep && sudo ./privsep.test -test.v")
 	}
 

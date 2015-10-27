@@ -10,6 +10,8 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"runtime"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -88,6 +90,30 @@ func TestPrivsep(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Error("timed out waiting for child to die")
 	}
+
+	maxFd, err := getHighestFd()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// expect stdin, stdout, stderr, r1, w1, r, w
+	if maxFd != 7 {
+		t.Errorf("wanted maximum fd of %d, got %d", 7, maxFd)
+	}
+
+	r.(*os.File).Close()
+	w.(*os.File).Close()
+	r1.Close()
+	w1.Close()
+
+	if maxFd, err = getHighestFd(); err != nil {
+		t.Error(err)
+	}
+
+	// now just stdin, stdout, stderr
+	if maxFd != 3 {
+		t.Errorf("wanted maximum fd of %d, got %d", 3, maxFd)
+	}
 }
 
 func init() {
@@ -121,8 +147,48 @@ func child(r io.Reader, w, w1 io.Writer) {
 		log.Fatalf("expected %q, got %q", ping, line)
 	}
 
+	maxFd, err := getHighestFd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// expect stdin, stdout, stderr, r, w, w1
+	if maxFd != 6 {
+		log.Fatalf("wanted maximum fd of %d, got %d", 6, maxFd)
+	}
+
 	io.WriteString(w, pong)
 	io.WriteString(w1, foo)
 
 	os.Exit(0)
+}
+
+// getHighestFd returns the highest valued file descriptor open in the current
+// process
+func getHighestFd() (int, error) {
+	var fdPath string
+	switch runtime.GOOS {
+	case "linux":
+		fdPath = "/proc/self/fd/"
+	case "darwin":
+		fdPath = "/dev/fd/"
+	default:
+		panic("unsupported platform")
+	}
+	dh, err := os.Open(fdPath)
+	if err != nil {
+		return -1, err
+	}
+	defer dh.Close()
+	names, err := dh.Readdirnames(0)
+	if err != nil {
+		return -1, err
+	}
+	var max int
+	for _, name := range names {
+		if n, err := strconv.Atoi(name); err == nil && n > max {
+			max = n
+		}
+	}
+	return max, nil
 }

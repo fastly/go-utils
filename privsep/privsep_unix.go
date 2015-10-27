@@ -3,6 +3,7 @@
 package privsep
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -21,11 +22,19 @@ const (
 	exitOSFailure        = 1
 	exitDescribedFailure = 2
 	exitFailsafe         = 3
+
+	statusOK = "ok"
+
+	// see comment below in createChild
+	inputFd      = 3
+	outputFd     = 4
+	statusFd     = 5
+	userFdOffset = statusFd + 1
 )
 
 func createChild(username, bin string, args []string, files []*os.File) (process *os.Process, r io.Reader, w io.Writer, err error) {
 	// create a pipe for each direction
-	var childIn, childOut, parentIn, parentOut *os.File
+	var childIn, childOut, childStatus, parentIn, parentOut, parentStatus *os.File
 	childIn, parentOut, err = os.Pipe()
 	if err != nil {
 		return
@@ -34,12 +43,18 @@ func createChild(username, bin string, args []string, files []*os.File) (process
 	if err != nil {
 		return
 	}
+	parentStatus, childStatus, err = os.Pipe()
+	if err != nil {
+		return
+	}
 
 	child := exec.Command(bin, args...)
 
-	// childIn becomes fd 3 in child, childOut becomes fd 4, etc
-	child.ExtraFiles = append(child.ExtraFiles, []*os.File{childIn, childOut}...)
+	// os/exec on Cmd.ExtraFiles: "If non-nil, entry i becomes file descriptor 3+i."
+	// so childIn becomes fd 3 in child, childOut is 4, childStatus is 5
+	child.ExtraFiles = append(child.ExtraFiles, []*os.File{childIn, childOut, childStatus}...)
 	if len(files) > 0 {
+		// user's files start at userFdOffset
 		child.ExtraFiles = append(child.ExtraFiles, files...)
 	}
 	child.Stdout = os.Stdout
@@ -56,9 +71,16 @@ func createChild(username, bin string, args []string, files []*os.File) (process
 		return
 	}
 
+	if status, _ := bufio.NewReader(parentStatus).ReadString('\n'); status != statusOK+"\n" {
+		err = errors.New(status)
+		return
+	}
+	parentStatus.Close()
+
 	// parent doesn't need these anymore
 	childIn.Close()
 	childOut.Close()
+	childStatus.Close()
 
 	process = child.Process
 	r = parentIn
@@ -101,6 +123,11 @@ func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, files []*os.Fil
 			reportError(err)
 		}
 
+		const X_OK = 1 // avoid dependency on non-stdlib https://github.com/golang/sys/blob/8642817a1a1d69c31059535024a5c3f02b5b176f/unix/constants.go
+		if err = syscall.Access(bin, X_OK); err != nil {
+			reportError(fmt.Errorf("%s is not executable by unprivileged user (%s)", bin, err))
+		}
+
 		fds := os.Getenv("__privsep_fds")
 		cleanEnv()
 		os.Setenv("__privsep_phase", "dropped")
@@ -117,21 +144,24 @@ func maybeBecomeChild() (isChild bool, r io.Reader, w io.Writer, files []*os.Fil
 		isChild = true
 
 		if os.Getuid() == 0 {
-			err = errors.New("child is still privileged")
-			return
+			reportError(errors.New("child is still privileged"))
 		}
 
 		nfds, _ := strconv.Atoi(os.Getenv("__privsep_fds"))
 
 		cleanEnv()
 
-		r = os.NewFile(3, "input")
-		w = os.NewFile(4, "output")
+		r = os.NewFile(inputFd, "input")
+		w = os.NewFile(outputFd, "output")
+
+		status := os.NewFile(statusFd, "status")
+		fmt.Fprintln(status, statusOK)
+		status.Close()
 
 		if nfds > 0 {
 			files = make([]*os.File, nfds)
 			for i := 0; i < nfds; i++ {
-				files[i] = os.NewFile(uintptr(i)+5, fmt.Sprintf("fd%d", i))
+				files[i] = os.NewFile(userFdOffset+uintptr(i), fmt.Sprintf("fd%d", i))
 			}
 		}
 	}
@@ -174,13 +204,6 @@ func dropPrivs() error {
 }
 
 func reportError(err error) {
-	if err == nil {
-		return
-	}
-	replyToParent(err.Error())
+	fmt.Fprintln(os.NewFile(statusFd, "status"), err.Error())
 	os.Exit(exitDescribedFailure)
-}
-
-func replyToParent(reply string) {
-	fmt.Fprintln(os.NewFile(4, ""), reply)
 }

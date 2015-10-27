@@ -61,6 +61,7 @@ type Reporter struct {
 	*stopper.ChanStopper
 	prefix    string
 	callbacks []ReporterCallback
+	mu        sync.Mutex // guards previous
 	previous  map[string]gmetricSample
 	groupName string
 	dmax      uint32
@@ -206,6 +207,8 @@ func NewGangliaReporterWithOptions(interval time.Duration, groupName string) *Re
 					sender := func(name string, value string, metricType uint32, units string, rate bool) {
 						v := value
 						if rate {
+							gr.mu.Lock()
+							defer gr.mu.Unlock()
 							prev, exists := gr.previous[name]
 							units += "/sec"
 

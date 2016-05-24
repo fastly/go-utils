@@ -113,6 +113,8 @@ func (cc *CertCreator) GenerateKeyPair(purpose Purpose, parent *KeyPair, name st
 	serial := new(big.Int).SetInt64(cc.Serial)
 	cc.Serial++
 	template := x509.Certificate{
+		SignatureAlgorithm: x509.SHA256WithRSA,
+
 		Subject: pkix.Name{
 			Country:      []string{cc.Country},
 			Province:     []string{cc.State},

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	gotls "crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"log"
@@ -170,6 +171,14 @@ func TestCertCreator(t *testing.T) {
 		tlsConn := gotls.Client(conn, client.clientConfig)
 		clientErr := tlsConn.Handshake()
 		if clientErr == nil {
+
+			state := tlsConn.ConnectionState()
+			wantAlgo := x509.SHA256WithRSA
+			gotAlgo := state.PeerCertificates[0].SignatureAlgorithm
+			if wantAlgo != gotAlgo {
+				t.Errorf("expected signature algorithm %v, got %v", wantAlgo, gotAlgo)
+			}
+
 			tlsConn.SetDeadline(time.Now().Add(time.Second))
 			if _, err := io.WriteString(tlsConn, "foo"); err == nil {
 				tlsConn.SetDeadline(time.Now().Add(time.Second))

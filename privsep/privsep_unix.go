@@ -186,13 +186,30 @@ func dropPrivs() error {
 		return fmt.Errorf("uid of %s isn't numeric: %q", u.Uid, u.Uid)
 	}
 
-	// XXX can't lookup gid by name, http://code.google.com/p/go/issues/detail?id=2617
 	gid, err := strconv.Atoi(u.Gid)
 	if err != nil {
 		return fmt.Errorf("gid of %s isn't numeric: %q", u.Gid, u.Gid)
 	}
 
-	// change gid first since it can't be changed after dropping root uid
+	groups, err := u.GroupIds()
+	if err != nil {
+		return err
+	}
+
+	gids := make([]int, len(groups))
+	for i := range groups {
+		g, err := strconv.Atoi(groups[i])
+		if err != nil {
+			return fmt.Errorf("gid isn't numeric: %q", groups[i])
+		}
+		gids[i] = g
+	}
+
+	// change groups first since they can't be changed after
+	// dropping root uid
+	if err := syscall.Setgroups(gids); err != nil {
+		return err
+	}
 	if err := setgid(gid); err != nil {
 		return err
 	}

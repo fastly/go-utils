@@ -16,7 +16,7 @@ import (
 )
 
 func NewMockServer() *server.Server {
-	addr := ":0" // let kernel assign an unused port
+	addr := "127.0.0.1:0" // let kernel assign an unused port
 	s, err := server.NewSingleServer(&addr)
 	if err != nil {
 		log.Panic(err)

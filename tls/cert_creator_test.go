@@ -247,7 +247,7 @@ func TestCertCreator(t *testing.T) {
 	check(friend, friend, "", "")
 
 	// friend to foe: friend client should reject foe server
-	check(friend, foe, "x509: certificate signed by unknown authority", "remote error: bad certificate")
+	check(friend, foe, "x509: certificate signed by unknown authority", "remote error: tls: bad certificate")
 
 	// foe to friend: foe client accepts friend server but server should reject
 	// foe client.
@@ -269,7 +269,7 @@ func TestCertCreator(t *testing.T) {
 			--- FAIL: TestCertCreator (0.20 seconds)
 		        cert_creator_test.go:224: foe->friend server: expected error "tls: client didn't provide a certificate" but got "tls: failed to verify client's certificate: x509: certificate signed by unknown authority"
 	*/
-	check(foe, friend, "remote error: bad certificate", "tls: client didn't provide a certificate")
+	check(foe, friend, "remote error: tls: bad certificate", "tls: client didn't provide a certificate")
 	foe.clientConfig.InsecureSkipVerify = false
 
 	done = true

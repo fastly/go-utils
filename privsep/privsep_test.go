@@ -23,6 +23,7 @@ const (
 	ping = "ping\n"
 	pong = "pong\n"
 	foo  = "foo\n"
+	bad  = "bad\n"
 )
 
 func TestPrivsep(t *testing.T) {
@@ -130,31 +131,57 @@ func init() {
 var testArgs = []string{"--flag", "arg"}
 
 func child(r io.Reader, w, w1 io.Writer) {
+	fatalf := func(format string, args ...interface{}) {
+		log.Printf(format, args...)
+		io.WriteString(w, bad)
+		io.WriteString(w1, bad)
+		os.Exit(1)
+	}
+
 	args := os.Args[1:]
 	if !reflect.DeepEqual(args, testArgs) {
-		log.Fatalf("got args %+v, expected %+v", args, testArgs)
+		fatalf("got args %+v, expected %+v", args, testArgs)
 	}
 
 	for _, e := range envVars {
 		if v := os.Getenv(e); v != "" {
-			log.Fatalf("%s env var should be empty, is %q", e, v)
+			fatalf("%s env var should be empty, is %q", e, v)
 		}
 	}
 
 	br := bufio.NewReader(r)
 	line, _ := br.ReadString('\n')
 	if line != ping {
-		log.Fatalf("expected %q, got %q", ping, line)
+		fatalf("expected %q, got %q", ping, line)
 	}
 
 	maxFd, err := getHighestFd()
 	if err != nil {
-		log.Fatal(err)
+		fatalf("unexpected error from getHighestFd: %s", err)
 	}
 
 	// expect stdin, stdout, stderr, r, w, w1
 	if maxFd != 6 {
-		log.Fatalf("wanted maximum fd of %d, got %d", 6, maxFd)
+		fatalf("wanted maximum fd of %d, got %d", 6, maxFd)
+	}
+
+	if os.Getuid() == 0 {
+		fatalf("wanted non-zero uid")
+	}
+
+	if os.Getgid() == 0 {
+		fatalf("wanted non-zero gid")
+	}
+
+	gids, err := syscall.Getgroups()
+	if err != nil {
+		fatalf("unexpected error from syscall.Getgroups: %s", err)
+	}
+
+	for _, gid := range gids {
+		if gid == 0 {
+			fatalf("wanted non-zero gid in groups, got %v", gids)
+		}
 	}
 
 	io.WriteString(w, pong)

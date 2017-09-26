@@ -1,3 +1,10 @@
+DEPRECATED 
+========== 
+
+This repository is demarcated as deprecated. Please don't use it or any of its
+packages for new projects, and please consider migrating away from it in
+existing projects. Bring questions or concerns to the next internal Go Salon.
+
 go-utils
 ========
 utils for go.

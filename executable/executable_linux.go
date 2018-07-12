@@ -1,6 +1,6 @@
-package executable
-
 // +build linux
+
+package executable
 
 import (
 	"fmt"

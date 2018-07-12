@@ -1,6 +1,6 @@
-package executable
-
 // +build darwin
+
+package executable
 
 // #import <mach-o/dyld.h>
 // #import <libproc.h>
